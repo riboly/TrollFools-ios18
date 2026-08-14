@@ -99,6 +99,13 @@ extension InjectorV3 {
         didUseMachOEnumerationFallback = false
         let preparedAssetURLs = try preprocessAssets(assetURLs)
         var report = try preflight(preparedAssetURLs)
+        if report.isSafe {
+            do {
+                try validateDryRunSigning(preparedAssetURLs, report: &report)
+            } catch {
+                report.errors.append("Signing simulation failed: \(error.localizedDescription)")
+            }
+        }
         report.status = report.isSafe ? .safeToInject : .notSafeToInject
         try writeInjectionReport(&report)
         return report
@@ -347,9 +354,49 @@ extension InjectorV3 {
             errors: errors
         )
         if signingBackend == .rootlessAdHoc {
-            report.warnings.append("TrollStore Lite rootless capability detected; modified Mach-Os will use /var/jb/usr/bin/ldid.")
+            report.warnings.append("TrollStore Lite rootless capability detected; ad-hoc signing candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")).")
         }
         return report
+    }
+
+    fileprivate func validateDryRunSigning(_ assetURLs: [URL], report: inout InjectionReport) throws {
+        let simulationURL = temporaryDirectoryURL
+            .appendingPathComponent("DryRunSigning-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: simulationURL, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: simulationURL) }
+
+        let injectableAssets = assetURLs.filter {
+            $0.pathExtension.lowercased() == "dylib" || $0.pathExtension.lowercased() == "framework"
+        }
+        for assetURL in injectableAssets {
+            let copyURL = simulationURL.appendingPathComponent(assetURL.lastPathComponent)
+            try FileManager.default.copyItem(at: assetURL, to: copyURL)
+            let executable = checkIsBundle(copyURL) ? try locateExecutableInBundle(copyURL) : copyURL
+            try cmdPseudoSign(executable, force: true)
+            let metadata = try inspectMachO(executable)
+            guard metadata.codeSignaturesValid else {
+                throw Error.generic("Dry Run produced an invalid CodeDirectory for \(assetURL.lastPathComponent).")
+            }
+            report.warnings.append("Signing simulation passed for \(assetURL.lastPathComponent).")
+        }
+
+        guard let targetMetadata = report.targetMachO else { return }
+        let sourceTargetURL = URL(fileURLWithPath: targetMetadata.path)
+        let targetCopyURL = simulationURL.appendingPathComponent("Target-\(sourceTargetURL.lastPathComponent)")
+        try FileManager.default.copyItem(at: sourceTargetURL, to: targetCopyURL)
+        for assetURL in injectableAssets {
+            try insertLoadCommandOfAsset(assetURL, to: targetCopyURL)
+        }
+        try cmdPseudoSign(targetCopyURL, force: true)
+
+        let finalTarget = try inspectMachO(targetCopyURL)
+        guard finalTarget.isStructurallyValid, finalTarget.codeSignaturesValid else {
+            throw Error.generic("Dry Run produced an invalid target Mach-O or CodeDirectory.")
+        }
+        for command in report.requestedLoadCommands where !finalTarget.slices.allSatisfy({ $0.dependencies.contains(command) }) {
+            throw Error.generic("Dry Run target is missing \(command).")
+        }
+        report.warnings.append("Target Mach-O load-command and signing simulation passed.")
     }
 
     fileprivate func validateInjection(report: inout InjectionReport, transaction: InjectionTransaction) throws {

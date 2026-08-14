@@ -94,23 +94,21 @@ extension InjectorV3 {
 
     fileprivate static let bundledLdidBinaryURL: URL = findExecutable("ldid")
 
-    var ldidBinaryURL: URL {
+    var ldidBinaryURLs: [URL] {
+        var candidates = [Self.bundledLdidBinaryURL]
         if signingBackend == .rootlessAdHoc {
             let rootlessLdid = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
-            if FileManager.default.isExecutableFile(atPath: rootlessLdid.path) {
-                return rootlessLdid
+            if FileManager.default.isExecutableFile(atPath: rootlessLdid.path),
+               rootlessLdid.standardizedFileURL.path != Self.bundledLdidBinaryURL.standardizedFileURL.path
+            {
+                candidates.append(rootlessLdid)
             }
         }
-        return Self.bundledLdidBinaryURL
+        return candidates
     }
 
     func cmdExtractEntitlements(_ target: URL) throws -> String? {
-        let receipt = try Execute.rootSpawnWithOutputs(binary: ldidBinaryURL.path, arguments: [
-            "-e", target.path,
-        ], ddlog: logger)
-        guard case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS else {
-            try throwCommandFailure("ldid", reason: receipt.terminationReason)
-        }
+        let receipt = try runLdid(arguments: ["-e", target.path], operation: "extract entitlements", target: target)
         return receipt.stdout.isEmpty ? nil : receipt.stdout
     }
 
@@ -152,39 +150,64 @@ extension InjectorV3 {
         }
 
         if preservesEntitlements {
-            var receipt: AuxiliaryExecute.ExecuteReceipt
-
-            receipt = try Execute.rootSpawnWithOutputs(binary: ldidBinaryURL.path, arguments: [
-                "-e", target.path,
-            ], ddlog: logger)
-
-            guard case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS else {
-                try throwCommandFailure("ldid", reason: receipt.terminationReason)
-            }
-
+            let receipt = try runLdid(arguments: ["-e", target.path], operation: "extract entitlements", target: target)
             let xmlContent = receipt.stdout
             let xmlURL = temporaryDirectoryURL
                 .appendingPathComponent("\(UUID().uuidString)_\(target.lastPathComponent)")
                 .appendingPathExtension("xml")
 
             try xmlContent.write(to: xmlURL, atomically: true, encoding: .utf8)
-
-            receipt = try Execute.rootSpawnWithOutputs(binary: ldidBinaryURL.path, arguments: [
-                "-S\(xmlURL.path)", target.path,
-            ], ddlog: logger)
-
-            guard case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS else {
-                try throwCommandFailure("ldid", reason: receipt.terminationReason)
-            }
+            try runLdid(
+                arguments: ["-S\(xmlURL.path)", target.path],
+                operation: "sign with preserved entitlements",
+                target: target
+            )
         } else {
-            let retCode = try Execute.rootSpawn(binary: ldidBinaryURL.path, arguments: [
-                "-S", target.path,
-            ], ddlog: logger)
+            try runLdid(arguments: ["-S", target.path], operation: "ad-hoc sign", target: target)
+        }
+    }
 
-            guard case let .exit(code) = retCode, code == EXIT_SUCCESS else {
-                try throwCommandFailure("ldid", reason: retCode)
+    @discardableResult
+    private func runLdid(arguments: [String], operation: String, target: URL) throws -> AuxiliaryExecute.ExecuteReceipt {
+        var failures = [String]()
+        for binaryURL in ldidBinaryURLs {
+            do {
+                let receipt = try Execute.rootSpawnWithOutputs(
+                    binary: binaryURL.path,
+                    arguments: arguments,
+                    ddlog: logger
+                )
+                if case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS {
+                    DDLogInfo("ldid \(operation) succeeded with \(binaryURL.path): \(target.path)", ddlog: logger)
+                    return receipt
+                }
+
+                let detail = ldidFailureDetail(binaryURL: binaryURL, receipt: receipt)
+                failures.append(detail)
+                DDLogError("ldid \(operation) failed for \(target.path): \(detail)", ddlog: logger)
+            } catch {
+                let detail = "\(binaryURL.path): \(error.localizedDescription)"
+                failures.append(detail)
+                DDLogError("ldid \(operation) failed for \(target.path): \(detail)", ddlog: logger)
             }
         }
+        throw Error.generic("ldid \(operation) failed for \(target.path)\n\(failures.joined(separator: "\n"))")
+    }
+
+    private func ldidFailureDetail(binaryURL: URL, receipt: AuxiliaryExecute.ExecuteReceipt) -> String {
+        let reason: String
+        switch receipt.terminationReason {
+        case let .exit(code):
+            reason = "exit \(code)"
+        case let .uncaughtSignal(signal):
+            reason = "signal \(signal)"
+        }
+        let stderr = receipt.stderr.trimmingCharacters(in: .whitespacesAndNewlines)
+        let stdout = receipt.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+        var components = ["\(binaryURL.path): \(reason)"]
+        if !stderr.isEmpty { components.append("stderr: \(stderr)") }
+        if !stdout.isEmpty { components.append("stdout: \(stdout)") }
+        return components.joined(separator: "; ")
     }
 
     // MARK: - mkdir
