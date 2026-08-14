@@ -5,6 +5,7 @@
 //  Created by 82Flex on 2025/1/9.
 //
 
+import CocoaLumberjackSwift
 import Foundation
 import MachOKit
 
