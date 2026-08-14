@@ -1,0 +1,4 @@
+interface:
+  display_name: "TrollFools iOS 18 Maintainer"
+  short_description: "维护、诊断并发布 TrollFools.L fork"
+  default_prompt: "Use $trollfools-ios18-maintainer to diagnose and fix this TrollFools.L issue without regressing the verified injection baseline."
