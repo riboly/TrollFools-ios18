@@ -302,6 +302,11 @@ extension InjectorV3 {
             if !targetMetadata.codeSignaturesValid {
                 errors.append("Original target CodeDirectory code-slot hashes are invalid or unsupported.")
             }
+            if signingBackend == .coreTrustBypass,
+               targetMetadata.slices.contains(where: { ($0.codeSignatureOffset ?? 0) % 4096 != 0 })
+            {
+                errors.append("The bundled CoreTrust helper cannot safely update a non-4K-aligned CodeDirectory. Use the TrollStore Lite rootless ad-hoc backend or rebuild the helper before injection.")
+            }
         }
 
         if executableMetadata.architectures.contains("arm64e") {

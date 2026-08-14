@@ -56,21 +56,6 @@ jobs:
           ref: master
           path: ${{ env.THEOS }}/sdks
 
-      - name: Checkout ChOma
-        uses: actions/checkout@v4.1.1
-        with:
-          repository: opa334/ChOma
-          ref: e270219e20214cc9b654ac2d48b96540be5bc0fd
-          path: choma
-
-      - name: Build Current ChOma Helper
-        run: |
-          sed -i '' 's/csd_code_directory_update(realCodeDirBlob, macho);/csd_code_directory_update_code_slots(realCodeDirBlob, macho);/' choma/tests/ct_bypass/main.c
-          make -C choma TARGET=ios DISABLE_TESTS=1
-          make -C choma TARGET=ios output/ios/tests/ct_bypass
-          cp choma/output/ios/tests/ct_bypass TrollFools/ct_bypass
-          ldid -S TrollFools/ct_bypass
-
       - name: Build Packages
         run: |
           make package
