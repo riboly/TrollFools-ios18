@@ -5,6 +5,7 @@
 //  Created by 82Flex on 2025/1/10.
 //
 
+import CocoaLumberjackSwift
 import Foundation
 
 extension InjectorV3 {
@@ -73,7 +74,8 @@ extension InjectorV3 {
         let rootURL = Self.injectionBackupsRoot
             .appendingPathComponent(appID, isDirectory: true)
             .appendingPathComponent(identifier, isDirectory: true)
-        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+        DDLogInfo("Creating injection backup at \(rootURL.path)", ddlog: logger)
+        try cmdMakeDirectory(at: rootURL, withIntermediateDirectories: true)
 
         let codeSignatureURL = bundleURL.appendingPathComponent("_CodeSignature", isDirectory: true)
         let provisioningURL = bundleURL.appendingPathComponent("embedded.mobileprovision")
@@ -93,31 +95,28 @@ extension InjectorV3 {
             let existed = FileManager.default.fileExists(atPath: normalized.path, isDirectory: &isDirectory)
             let entry = InjectionBackupEntry(relativePath: relativePath, existed: existed, isDirectory: isDirectory.boolValue)
             entries.append(entry)
+            DDLogInfo("Backup entry \(relativePath), existed: \(existed)", ddlog: logger)
             guard existed else { continue }
 
             let backupURL = rootURL.appendingPathComponent("Files", isDirectory: true).appendingPathComponent(relativePath)
-            try FileManager.default.createDirectory(at: backupURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try cmdMakeDirectory(at: backupURL.deletingLastPathComponent(), withIntermediateDirectories: true)
             try cmdCopy(from: normalized, to: backupURL, clone: true, overwrite: true)
         }
 
         let originalEntitlements = try? cmdExtractEntitlements(executableURL)
         if let originalEntitlements {
-            try originalEntitlements.write(
-                to: rootURL.appendingPathComponent("entitlements.xml"),
-                atomically: true,
-                encoding: .utf8
-            )
+            try writeBackupData(Data(originalEntitlements.utf8), name: "entitlements.xml", rootURL: rootURL)
         }
         if let metadata {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            try encoder.encode(metadata).write(to: rootURL.appendingPathComponent("original-mach-o.json"), options: .atomic)
+            try writeBackupData(try encoder.encode(metadata), name: "original-mach-o.json", rootURL: rootURL)
         }
 
-        let manifestURL = rootURL.appendingPathComponent("manifest.json")
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        try encoder.encode(entries).write(to: manifestURL, options: .atomic)
+        try writeBackupData(try encoder.encode(entries), name: "manifest.json", rootURL: rootURL)
+        DDLogInfo("Injection backup completed with \(entries.count) entries", ddlog: logger)
         return InjectionTransaction(
             identifier: identifier,
             rootURL: rootURL,
@@ -151,5 +150,17 @@ extension InjectorV3 {
             throw Error.generic("Backup target is outside the app bundle: \(url.path)")
         }
         return path == root ? "." : String(path.dropFirst(root.count + 1))
+    }
+
+    private func writeBackupData(_ data: Data, name: String, rootURL: URL) throws {
+        let stagingURL = temporaryDirectoryURL.appendingPathComponent("\(UUID().uuidString)-\(name)")
+        try data.write(to: stagingURL, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: stagingURL) }
+        try cmdCopy(
+            from: stagingURL,
+            to: rootURL.appendingPathComponent(name),
+            clone: true,
+            overwrite: true
+        )
     }
 }

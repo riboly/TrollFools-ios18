@@ -34,7 +34,7 @@ struct SuccessView: View {
                 Button {
                     isLogsPresented = true
                 } label: {
-                    Label(NSLocalizedString("View Logs", comment: ""),
+                    Label(isInjectionReport ? NSLocalizedString("View Report", comment: "") : NSLocalizedString("View Logs", comment: ""),
                           systemImage: "note.text")
                 }
             }
@@ -43,7 +43,44 @@ struct SuccessView: View {
         .multilineTextAlignment(.center)
         .sheet(isPresented: $isLogsPresented) {
             if let logFileURL {
-                LogsView(url: logFileURL)
+                if isInjectionReport {
+                    DiagnosticFileView(url: logFileURL)
+                } else {
+                    LogsView(url: logFileURL)
+                }
+            }
+        }
+    }
+
+    private var isInjectionReport: Bool {
+        logFileURL?.lastPathComponent.hasPrefix("injection-report-") == true
+    }
+}
+
+struct DiagnosticFileView: View {
+    let url: URL
+    @Environment(\.presentationMode) private var presentationMode
+
+    private var content: String {
+        (try? String(contentsOf: url, encoding: .utf8)) ?? NSLocalizedString("Unable to read report.", comment: "")
+    }
+
+    var body: some View {
+        NavigationView {
+            ScrollView {
+                Text(content)
+                    .font(.system(size: 12, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding()
+            }
+            .navigationTitle(NSLocalizedString("Injection Report", comment: ""))
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(NSLocalizedString("Done", comment: "")) {
+                        presentationMode.wrappedValue.dismiss()
+                    }
+                }
             }
         }
     }

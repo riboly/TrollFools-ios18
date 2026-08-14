@@ -37,7 +37,7 @@ struct FailureView: View {
                 Button {
                     isLogsPresented = true
                 } label: {
-                    Label(NSLocalizedString("View Logs", comment: ""),
+                    Label(isInjectionReport ? NSLocalizedString("View Report", comment: "") : NSLocalizedString("View Logs", comment: ""),
                           systemImage: "note.text")
                 }
             }
@@ -46,9 +46,17 @@ struct FailureView: View {
         .multilineTextAlignment(.center)
         .sheet(isPresented: $isLogsPresented) {
             if let logFileURL {
-                LogsView(url: logFileURL)
+                if isInjectionReport {
+                    DiagnosticFileView(url: logFileURL)
+                } else {
+                    LogsView(url: logFileURL)
+                }
             }
         }
+    }
+
+    private var isInjectionReport: Bool {
+        logFileURL?.lastPathComponent.hasPrefix("injection-report-") == true
     }
 }
 

@@ -159,7 +159,7 @@ struct InjectView: View {
             ))
 
         } catch {
-            DDLogError("\(error)", ddlog: InjectorV3.main.logger)
+            DDLogError("\(error)", ddlog: activeInjector?.logger ?? InjectorV3.main.logger)
 
             var userInfo: [String: Any] = [
                 NSLocalizedDescriptionKey: error.localizedDescription,

@@ -53,11 +53,19 @@ extension InjectorV3 {
             destinationURLs.append(Self.alternateURL(for: targetMachO))
         }
 
-        let transaction = try beginInjectionTransaction(
-            targetMachO: targetMachO,
-            destinationURLs: destinationURLs,
-            metadata: report.targetMachO
-        )
+        let transaction: InjectionTransaction
+        do {
+            transaction = try beginInjectionTransaction(
+                targetMachO: targetMachO,
+                destinationURLs: destinationURLs,
+                metadata: report.targetMachO
+            )
+        } catch {
+            report.status = .injectionFailed
+            report.errors.append("Backup failed before injection: \(error.localizedDescription)")
+            try? writeInjectionReport(&report)
+            throw Error.generic(report.errors.joined(separator: "\n"))
+        }
         report.backupPath = transaction.rootURL.path
         terminateApp()
 
