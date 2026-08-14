@@ -1,6 +1,6 @@
-Package: wiki.qaq.trollfools
-Name: TrollFools
-Version: 4.3-258
+Package: wiki.qaq.trollfools.l
+Name: TrollFools.L
+Version: 4.3-259
 Section: Applications
 Depends: firmware (>= 14.0)
 Architecture: iphoneos-arm

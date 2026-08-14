@@ -78,8 +78,8 @@ fi
 
 # Write the control file
 cat > ../control << __EOF__
-Package: wiki.qaq.trollfools
-Name: TrollFools
+Package: wiki.qaq.trollfools.l
+Name: TrollFools.L
 Version: $VERSION-$new_build_number
 Section: Applications
 Depends: firmware (>= 14.0)

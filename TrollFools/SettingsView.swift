@@ -26,22 +26,38 @@ struct SettingsView: View {
     @AppStorage var dryRun: Bool
 
     @StateObject var viewControllerHost = ViewControllerHost()
+    @State private var isDryRunWarningPresented = false
 
     var body: some View {
         NavigationView {
             Form {
                 Section {
-                    Toggle(NSLocalizedString("Dry Run", comment: ""), isOn: $dryRun)
-                } footer: {
-                    paddedHeaderFooterText(NSLocalizedString("Analyze compatibility and create an injection report without modifying the app.", comment: ""))
-                }
-
-                Section {
-                    Picker(NSLocalizedString("Injection Strategy", comment: ""), selection: $injectStrategy) {
-                        ForEach(InjectorV3.Strategy.allCases, id: \.self) { strategy in
-                            Text(strategy.localizedDescription).tag(strategy)
+                    ForEach(InjectorV3.Strategy.allCases, id: \.self) { strategy in
+                        Button {
+                            injectStrategy = strategy
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(strategy.localizedDescription)
+                                        .font(.body)
+                                        .foregroundColor(.primary)
+                                    Text(strategy.localizedDetail)
+                                        .font(.footnote)
+                                        .foregroundColor(.secondary)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                                Spacer(minLength: 8)
+                                if injectStrategy == strategy {
+                                    Image(systemName: "checkmark")
+                                        .font(.body.weight(.semibold))
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                            .contentShape(Rectangle())
                         }
                     }
+                } header: {
+                    Text(NSLocalizedString("Injection Strategy", comment: ""))
                 } footer: {
                     paddedHeaderFooterText(NSLocalizedString("Choose how TrollFools tries possible targets. If the plug-in does not work as expected, try another option.", comment: ""))
                 }
@@ -63,9 +79,27 @@ struct SettingsView: View {
                 } footer: {
                     paddedHeaderFooterText(NSLocalizedString("Controls whether the app crashes when the plug-in cannot be found. Keeping this on can reduce unexpected crashes in some scenarios, but the plug-in will not work in those cases.", comment: ""))
                 }
+
+                Section {
+                    Toggle(NSLocalizedString("Dry Run", comment: ""), isOn: dryRunBinding)
+                } footer: {
+                    paddedHeaderFooterText(NSLocalizedString("Analyze compatibility and create an injection report without modifying the app.", comment: ""))
+                }
             }
             .navigationTitle(NSLocalizedString("Advanced Settings", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
+            .alert(isPresented: $isDryRunWarningPresented) {
+                Alert(
+                    title: Text(NSLocalizedString("Enable Injection Debug?", comment: "")),
+                    message: Text(NSLocalizedString("Injection Debug performs a complete simulation on temporary copies. It does not inject the plug-in, so the plug-in list remains empty. This option takes longer and will turn off automatically the next time TrollFools starts.", comment: "")),
+                    primaryButton: .default(Text(NSLocalizedString("Enable", comment: ""))) {
+                        dryRun = true
+                    },
+                    secondaryButton: .cancel {
+                        dryRun = false
+                    }
+                )
+            }
             .onViewWillAppear {
                 viewControllerHost.viewController = $0
             }
@@ -79,6 +113,19 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var dryRunBinding: Binding<Bool> {
+        Binding(
+            get: { dryRun },
+            set: { enabled in
+                if enabled {
+                    isDryRunWarningPresented = true
+                } else {
+                    dryRun = false
+                }
+            }
+        )
     }
 
     @ViewBuilder

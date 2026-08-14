@@ -23,6 +23,19 @@ extension InjectorV3 {
             case .postorder: NSLocalizedString("Post-order", comment: "")
             }
         }
+
+        var localizedDetail: String {
+            switch self {
+            case .lexicographic:
+                NSLocalizedString("Sorts candidate Mach-Os by filename for predictable selection. This is the recommended default.", comment: "")
+            case .fast:
+                NSLocalizedString("Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks.", comment: "")
+            case .preorder:
+                NSLocalizedString("Uses the original framework scan order and tries earlier candidates first.", comment: "")
+            case .postorder:
+                NSLocalizedString("Reverses the original framework scan order and tries later candidates first.", comment: "")
+            }
+        }
     }
 
     // MARK: - Instance Methods
@@ -481,6 +494,7 @@ extension InjectorV3 {
                 errors.append("Load-command padding contains mapped data for \(slice.architecture); insert_dylib --all-yes would overwrite it.")
             }
         }
+
     }
 
     fileprivate func alignedLoadCommandSize(base: Int, string: String) -> Int {

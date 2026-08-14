@@ -266,7 +266,7 @@
 "This is an advertisement." = "这是一则广告。";
 
 /* No comment provided by engineer. */
-"TrollFools" = "巨魔注入器";
+"TrollFools" = "巨魔注入器.L版";
 
 /* No comment provided by engineer. */
 "TrollRecorder" = "巨魔录音机";
@@ -311,9 +311,16 @@
 "You’ve selected at least one Debian Package “%@”. We’re here to remind you that it will not work as it was in a jailbroken environment. Please make sure you know what you’re doing." = "你至少选择了一个 Debian 软件包 “%@”。请留意，它通常不会像在越狱环境当中那样工作，甚至完全不起作用。请确保你知道自己在做些什么。";
 
 /* Injection diagnostics */
-"Dry Run" = "试运行";
-"Analyze compatibility and create an injection report without modifying the app." = "仅分析注入兼容性并生成报告，不会修改 App。试运行完成后，插件列表保持为空是正常现象。";
+"Dry Run" = "注入调试(Dry Run)";
+"Analyze compatibility and create an injection report without modifying the app." = "仅分析注入兼容性并生成报告，不会修改 App。注入调试完成后，插件列表保持为空是正常现象。";
 "Injection Report" = "注入报告";
 "View Report" = "查看报告";
 "Unable to read report." = "无法读取注入报告。";
 "Share Report" = "分享报告";
+"Enable Injection Debug?" = "启用注入调试？";
+"Injection Debug performs a complete simulation on temporary copies. It does not inject the plug-in, so the plug-in list remains empty. This option takes longer and will turn off automatically the next time TrollFools starts." = "注入调试会在临时副本上执行完整的修改、签名和验证流程，不会实际注入插件，因此插件列表仍为空。该过程耗时更长，并会在下次启动 TrollFools 时自动关闭。";
+"Enable" = "启用";
+"Sorts candidate Mach-Os by filename for predictable selection. This is the recommended default." = "按文件名排序候选 Mach-O，选择结果稳定且可预测。推荐默认使用此策略。";
+"Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks." = "优先尝试体积较小的 Mach-O，减少包含大量框架时的修改和签名耗时。";
+"Uses the original framework scan order and tries earlier candidates first." = "保持框架原始扫描顺序，优先尝试较早发现的候选目标。";
+"Reverses the original framework scan order and tries later candidates first." = "反转框架原始扫描顺序，优先尝试较晚发现的候选目标。";

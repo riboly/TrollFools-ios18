@@ -266,7 +266,7 @@
 "This is an advertisement." = "This is an advertisement.";
 
 /* No comment provided by engineer. */
-"TrollFools" = "TrollFools";
+"TrollFools" = "TrollFools.L";
 
 /* No comment provided by engineer. */
 "TrollRecorder" = "TrollRecorder";
@@ -309,3 +309,13 @@
 
 /* No comment provided by engineer. */
 "You’ve selected at least one Debian Package “%@”. We’re here to remind you that it will not work as it was in a jailbroken environment. Please make sure you know what you’re doing." = "You’ve selected at least one Debian Package “%@”. We’re here to remind you that it will not work as it was in a jailbroken environment. Please make sure you know what you’re doing.";
+
+/* Injection debugging and strategy descriptions */
+"Dry Run" = "Injection Debug (Dry Run)";
+"Enable Injection Debug?" = "Enable Injection Debug?";
+"Injection Debug performs a complete simulation on temporary copies. It does not inject the plug-in, so the plug-in list remains empty. This option takes longer and will turn off automatically the next time TrollFools starts." = "Injection Debug performs a complete simulation on temporary copies. It does not inject the plug-in, so the plug-in list remains empty. This option takes longer and will turn off automatically the next time TrollFools starts.";
+"Enable" = "Enable";
+"Sorts candidate Mach-Os by filename for predictable selection. This is the recommended default." = "Sorts candidate Mach-Os by filename for predictable selection. This is the recommended default.";
+"Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks." = "Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks.";
+"Uses the original framework scan order and tries earlier candidates first." = "Uses the original framework scan order and tries earlier candidates first.";
+"Reverses the original framework scan order and tries later candidates first." = "Reverses the original framework scan order and tries later candidates first.";

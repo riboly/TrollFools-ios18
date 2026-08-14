@@ -14,6 +14,9 @@ struct TrollFoolsApp: SwiftUI.App {
     var isDisclaimerHidden: Bool = false
 
     init() {
+        for key in UserDefaults.standard.dictionaryRepresentation().keys where key.hasPrefix("DryRun-") {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
         try? FileManager.default.removeItem(at: InjectorV3.temporaryRoot)
     }
 
