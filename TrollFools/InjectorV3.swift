@@ -42,8 +42,8 @@ final class InjectorV3 {
     var useFrameworkEnumerationFallback: Bool = true
     var injectStrategy: Strategy = .lexicographic
     var didUseMachOEnumerationFallback: Bool = false
-    private(set) var lastReport: InjectionReport?
-    private(set) var latestReportURL: URL?
+    var lastReport: InjectionReport?
+    var latestReportURL: URL?
 
     var signingBackend: SigningBackend {
         let hasTrollStoreLite = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
