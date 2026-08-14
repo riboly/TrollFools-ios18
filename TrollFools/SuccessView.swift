@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct SuccessView: View {
 
@@ -60,6 +61,7 @@ struct SuccessView: View {
 struct DiagnosticFileView: View {
     let url: URL
     @Environment(\.presentationMode) private var presentationMode
+    @State private var isSharePresented = false
 
     private var content: String {
         (try? String(contentsOf: url, encoding: .utf8)) ?? NSLocalizedString("Unable to read report.", comment: "")
@@ -76,14 +78,35 @@ struct DiagnosticFileView: View {
             .navigationTitle(NSLocalizedString("Injection Report", comment: ""))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button {
+                        isSharePresented = true
+                    } label: {
+                        Image(systemName: "square.and.arrow.up")
+                    }
+                    .accessibilityLabel(NSLocalizedString("Share Report", comment: ""))
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(NSLocalizedString("Done", comment: "")) {
                         presentationMode.wrappedValue.dismiss()
                     }
                 }
             }
+            .sheet(isPresented: $isSharePresented) {
+                ActivityView(activityItems: [url])
+            }
         }
     }
+}
+
+private struct ActivityView: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
 #Preview {

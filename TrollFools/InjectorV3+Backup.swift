@@ -144,15 +144,23 @@ extension InjectorV3 {
     }
 
     private func relativeBundlePath(_ url: URL) throws -> String {
-        let root = bundleURL.standardizedFileURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        let path = url.standardizedFileURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let root = canonicalFileSystemPath(bundleURL)
+        let path = canonicalFileSystemPath(url)
         guard path == root || path.hasPrefix(root + "/") else {
             throw Error.generic("Backup target is outside the app bundle: \(url.path)")
         }
         return path == root ? "." : String(path.dropFirst(root.count + 1))
     }
 
-    private func writeBackupData(_ data: Data, name: String, rootURL: URL) throws {
+    private func canonicalFileSystemPath(_ url: URL) -> String {
+        var path = url.standardizedFileURL.path
+        if path == "/var" || path.hasPrefix("/var/") {
+            path = "/private" + path
+        }
+        return path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+
+    func writeBackupData(_ data: Data, name: String, rootURL: URL) throws {
         let stagingURL = temporaryDirectoryURL.appendingPathComponent("\(UUID().uuidString)-\(name)")
         try data.write(to: stagingURL, options: .atomic)
         defer { try? FileManager.default.removeItem(at: stagingURL) }

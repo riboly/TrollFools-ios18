@@ -526,8 +526,8 @@ extension InjectorV3 {
         let json = try encoder.encode(report)
         try json.write(to: jsonURL, options: .atomic)
         if let backupURL {
-            try report.text.write(to: backupURL.appendingPathComponent("injection-report.txt"), atomically: true, encoding: .utf8)
-            try json.write(to: backupURL.appendingPathComponent("injection-report.json"), options: .atomic)
+            try writeBackupData(Data(report.text.utf8), name: "injection-report.txt", rootURL: backupURL)
+            try writeBackupData(json, name: "injection-report.json", rootURL: backupURL)
             try cmdChangeOwnerToInstalld(backupURL, recursively: true)
         }
         lastReport = report

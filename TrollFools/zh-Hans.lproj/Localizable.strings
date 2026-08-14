@@ -309,3 +309,11 @@
 
 /* No comment provided by engineer. */
 "You’ve selected at least one Debian Package “%@”. We’re here to remind you that it will not work as it was in a jailbroken environment. Please make sure you know what you’re doing." = "你至少选择了一个 Debian 软件包 “%@”。请留意，它通常不会像在越狱环境当中那样工作，甚至完全不起作用。请确保你知道自己在做些什么。";
+
+/* Injection diagnostics */
+"Dry Run" = "试运行";
+"Analyze compatibility and create an injection report without modifying the app." = "仅分析注入兼容性并生成报告，不会修改 App。试运行完成后，插件列表保持为空是正常现象。";
+"Injection Report" = "注入报告";
+"View Report" = "查看报告";
+"Unable to read report." = "无法读取注入报告。";
+"Share Report" = "分享报告";
