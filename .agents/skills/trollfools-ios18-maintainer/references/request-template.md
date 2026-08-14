@@ -16,10 +16,10 @@
 不支持 Skill 的 AI：
 
 ```text
-请先读取：
-1. C:\Users\Administrator\Desktop\TrollFools二改\TrollFools.L维护手册.md
-2. C:\GitHun\TrollFools-ios18\AGENTS.md
-3. C:\GitHun\TrollFools-ios18 当前代码
+当前工作目录是 TrollFools-ios18 仓库。请先读取：
+1. ./AGENTS.md
+2. ./docs/TrollFools.L维护手册.md
+3. 当前仓库代码
 
 然后处理下面的问题。先诊断根因，再做最小修改、构建、产物核验和仓库同步。禁止在手机中安装或修改任何文件。
 

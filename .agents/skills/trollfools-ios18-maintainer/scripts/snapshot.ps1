@@ -1,13 +1,29 @@
 param(
-    [string]$RepoPath = 'C:\GitHun\TrollFools-ios18',
-    [string]$ArtifactsPath = (Join-Path ([Environment]::GetFolderPath('Desktop')) ('TrollFools' + [char]0x4E8C + [char]0x6539))
+    [string]$RepoPath = '',
+    [string]$ArtifactsPath = ''
 )
 
 $ErrorActionPreference = 'Stop'
 
-if (-not (Test-Path -LiteralPath (Join-Path $RepoPath '.git'))) {
-    throw "Git repository not found: $RepoPath"
+if ([string]::IsNullOrWhiteSpace($RepoPath)) {
+    $currentPath = (Get-Location).Path
+    $detectedPath = & git -C $currentPath rev-parse --show-toplevel 2>$null
+    if ($LASTEXITCODE -eq 0 -and $detectedPath) {
+        $RepoPath = $detectedPath.Trim()
+    } else {
+        $candidate = $PSScriptRoot
+        1 .. 4 | ForEach-Object { $candidate = Split-Path -Parent $candidate }
+        if (Test-Path -LiteralPath (Join-Path $candidate '.git')) {
+            $RepoPath = $candidate
+        }
+    }
 }
+
+if ([string]::IsNullOrWhiteSpace($RepoPath) -or -not (Test-Path -LiteralPath (Join-Path $RepoPath '.git'))) {
+    throw 'Git repository not found. Run from the repository or pass -RepoPath.'
+}
+
+$RepoPath = (Resolve-Path -LiteralPath $RepoPath).Path
 
 Write-Output '=== Repository ==='
 git -C $RepoPath status --short --branch
@@ -31,7 +47,9 @@ Write-Output "Length: $($helperItem.Length)"
 Write-Output "SHA256: $helperHash"
 
 Write-Output "`n=== Latest Artifacts ==="
-if (Test-Path -LiteralPath $ArtifactsPath) {
+if ([string]::IsNullOrWhiteSpace($ArtifactsPath)) {
+    Write-Output 'Not scanned. Pass -ArtifactsPath when artifact verification is needed.'
+} elseif (Test-Path -LiteralPath $ArtifactsPath) {
     Get-ChildItem -LiteralPath $ArtifactsPath -Recurse -File |
         Where-Object { $_.Extension -in '.tipa', '.deb' } |
         Sort-Object LastWriteTime -Descending |
@@ -40,4 +58,6 @@ if (Test-Path -LiteralPath $ArtifactsPath) {
             $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash
             Write-Output "$($_.FullName) | $($_.Length) bytes | SHA256 $hash"
         }
+} else {
+    throw "Artifact directory not found: $ArtifactsPath"
 }

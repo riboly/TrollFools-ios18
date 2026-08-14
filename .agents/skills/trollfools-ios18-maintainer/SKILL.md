@@ -9,7 +9,7 @@ Treat the checked-out repository and supplied device logs as authoritative. Do n
 
 ## Start Every Task
 
-1. Locate the repository. Prefer `C:\GitHun\TrollFools-ios18`; otherwise find the checkout by its `origin` URL.
+1. Locate the repository from the current working directory, repo-local Skill path, or its `origin` URL. Never rely on a fixed local absolute path.
 2. Read `AGENTS.md`, `references/baseline.md`, and the files relevant to the request.
 3. Run `scripts/snapshot.ps1` or equivalent read-only checks.
 4. Inspect `git status` before editing. Preserve unrelated user changes.
@@ -56,7 +56,7 @@ Follow [references/release.md](references/release.md). At minimum:
 2. Build through `.github/workflows/compile.yml` on GitHub Actions.
 3. Download and validate the TIPA and DEB rather than trusting a green workflow alone.
 4. Verify plist identity, ZIP readability and permissions, Mach-O slice count, and `ct_bypass` size/architecture.
-5. Copy final artifacts to the requested desktop output directory.
+5. Copy final artifacts to the output directory requested in the current task.
 6. Commit and push only intended files.
 7. Report `STATICALLY VERIFIED`, `DEVICE VERIFIED`, or `NOT VERIFIED` accurately.
 

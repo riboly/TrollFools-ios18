@@ -4,14 +4,14 @@
 
 ## 1. 入口信息
 
-- 本地仓库：`C:\GitHun\TrollFools-ios18`
+- 本地仓库：当前包含 `.git`、`AGENTS.md`、`TrollFools/` 的仓库根目录；不要依赖固定盘符或绝对路径
 - Fork：<https://github.com/riboly/TrollFools-ios18>
 - 上游：<https://github.com/Lessica/TrollFools>
 - 主分支：`main`
 - App 名称：`TrollFools.L`
 - Bundle ID：`wiki.qaq.TrollFools.L`
 - Debian 包 ID：`wiki.qaq.trollfools.l`
-- AI Skill：`C:\Users\Administrator\Desktop\TrollFools二改\trollfools-ios18-maintainer`
+- Repo-local AI Skill：`.agents/skills/trollfools-ios18-maintainer`
 
 ## 2. 实际设备
 
@@ -113,7 +113,7 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 5. 下载 TIPA/DEB/dSYM。
 6. 解析 TIPA 内 Info.plist，核对名称、Bundle ID、版本、ZIP 完整性和 `0755` 权限。
 7. 解析主程序及 `ct_bypass` Mach-O 架构、slice 数和签名区，检查 helper 是否异常膨胀。
-8. 计算 SHA-256，并复制到 `C:\Users\Administrator\Desktop\TrollFools二改` 下的版本目录。
+8. 计算 SHA-256，并复制到当前任务指定的输出目录；不要假设固定桌面路径。
 9. 输出 GitHub Actions 链接、提交哈希、文件路径、SHA-256 和验证级别。
 
 ## 9. 新会话直接用法
@@ -133,8 +133,8 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 发送：
 
 ```text
-请先读取 C:\Users\Administrator\Desktop\TrollFools二改\TrollFools.L维护手册.md、
-C:\GitHun\TrollFools-ios18\AGENTS.md 和当前仓库代码，然后处理：<问题>。
+当前工作目录是 TrollFools-ios18 仓库。请先读取 ./AGENTS.md、
+./docs/TrollFools.L维护手册.md 和当前仓库代码，然后处理：<问题>。
 附件：<日志或截图路径>。先诊断根因，禁止写入手机，完成后构建、核验产物并同步 fork。
 ```
 
@@ -142,14 +142,14 @@ C:\GitHun\TrollFools-ios18\AGENTS.md 和当前仓库代码，然后处理：<问
 
 ## 10. Skill 安装
 
-Codex 用户级安装目录通常为：
+Skill 源目录始终使用仓库相对路径：
 
-`C:\Users\Administrator\.codex\skills\trollfools-ios18-maintainer`
+`.agents/skills/trollfools-ios18-maintainer`
 
-将整个 `trollfools-ios18-maintainer` 文件夹放入该目录，重新开启会话后即可使用 `$trollfools-ios18-maintainer`。其他支持 Agent Skills 的工具，将同一文件夹导入其 Skills 目录即可。不支持 Skill 的工具直接读取本维护手册和 Skill 内的 `SKILL.md`。
+将整个 Skill 文件夹复制到工具自己的用户级 Skills 目录，重新开启会话后即可使用 `$trollfools-ios18-maintainer`。Codex 通常使用 `$CODEX_HOME/skills`；其他工具以自身配置为准。不支持 Skill 的工具直接读取本维护手册和 Skill 内的 `SKILL.md`。
 
 Skill 自检命令：
 
 ```powershell
-python C:\Users\Administrator\.codex\skills\.system\skill-creator\scripts\quick_validate.py C:\Users\Administrator\Desktop\TrollFools二改\trollfools-ios18-maintainer
+python <quick_validate.py 的实际路径> .\.agents\skills\trollfools-ios18-maintainer
 ```

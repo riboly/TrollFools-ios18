@@ -3,8 +3,8 @@
 ## Before Editing
 
 ```powershell
-git -C C:\GitHun\TrollFools-ios18 status --short --branch
-git -C C:\GitHun\TrollFools-ios18 log -5 --oneline
+git status --short --branch
+git log -5 --oneline
 ```
 
 Read the code before changing it. Do not overwrite unrelated dirty files.
@@ -50,9 +50,7 @@ Regression tripwire: do not reintroduce CI steps that rebuild and replace `Troll
 
 ## Delivery
 
-Copy final packages into a versioned directory under:
-
-`C:\Users\Administrator\Desktop\TrollFools二改`
+Copy final packages into a versioned directory under the output path requested in the current task. Do not persist a machine-specific checkout or artifact path in prompts or source files.
 
 Report:
 

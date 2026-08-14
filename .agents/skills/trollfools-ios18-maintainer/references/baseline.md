@@ -2,7 +2,7 @@
 
 ## Repository
 
-- Local checkout: `C:\GitHun\TrollFools-ios18`
+- Local checkout: the current Git repository root; its absolute location may change
 - Fork: `https://github.com/riboly/TrollFools-ios18`
 - Upstream: `https://github.com/Lessica/TrollFools`
 - Primary branch: `main`

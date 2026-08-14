@@ -23,5 +23,5 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - Build application changes through `.github/workflows/compile.yml`.
 - Validate TIPA ZIP integrity, plist identity, executable permissions, Mach-O slices, signatures, and `ct_bypass` size/architecture after every build.
 - Use the LAN proxy documented in the maintenance manual for network operations.
-- Push intended changes to `origin` and copy final artifacts to `C:\Users\Administrator\Desktop\TrollFools二改`.
+- Push intended changes to `origin` and copy final artifacts to the output directory requested in the current task. Never assume a fixed local checkout or artifact path.
 - Report only `STATICALLY VERIFIED`, `DEVICE VERIFIED`, or `NOT VERIFIED` according to actual evidence.
