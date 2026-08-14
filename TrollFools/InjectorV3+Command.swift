@@ -92,7 +92,27 @@ extension InjectorV3 {
 
     // MARK: - ldid
 
-    fileprivate static let ldidBinaryURL: URL = findExecutable("ldid")
+    fileprivate static let bundledLdidBinaryURL: URL = findExecutable("ldid")
+
+    var ldidBinaryURL: URL {
+        if signingBackend == .rootlessAdHoc {
+            let rootlessLdid = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
+            if FileManager.default.isExecutableFile(atPath: rootlessLdid.path) {
+                return rootlessLdid
+            }
+        }
+        return Self.bundledLdidBinaryURL
+    }
+
+    func cmdExtractEntitlements(_ target: URL) throws -> String? {
+        let receipt = try Execute.rootSpawnWithOutputs(binary: ldidBinaryURL.path, arguments: [
+            "-e", target.path,
+        ], ddlog: logger)
+        guard case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS else {
+            try throwCommandFailure("ldid", reason: receipt.terminationReason)
+        }
+        return receipt.stdout.isEmpty ? nil : receipt.stdout
+    }
 
     func cmdPseudoSign(_ target: URL, force: Bool = false) throws {
         var hasCodeSign = false
@@ -134,7 +154,7 @@ extension InjectorV3 {
         if preservesEntitlements {
             var receipt: AuxiliaryExecute.ExecuteReceipt
 
-            receipt = try Execute.rootSpawnWithOutputs(binary: Self.ldidBinaryURL.path, arguments: [
+            receipt = try Execute.rootSpawnWithOutputs(binary: ldidBinaryURL.path, arguments: [
                 "-e", target.path,
             ], ddlog: logger)
 
@@ -149,7 +169,7 @@ extension InjectorV3 {
 
             try xmlContent.write(to: xmlURL, atomically: true, encoding: .utf8)
 
-            receipt = try Execute.rootSpawnWithOutputs(binary: Self.ldidBinaryURL.path, arguments: [
+            receipt = try Execute.rootSpawnWithOutputs(binary: ldidBinaryURL.path, arguments: [
                 "-S\(xmlURL.path)", target.path,
             ], ddlog: logger)
 
@@ -157,7 +177,7 @@ extension InjectorV3 {
                 try throwCommandFailure("ldid", reason: receipt.terminationReason)
             }
         } else {
-            let retCode = try Execute.rootSpawn(binary: Self.ldidBinaryURL.path, arguments: [
+            let retCode = try Execute.rootSpawn(binary: ldidBinaryURL.path, arguments: [
                 "-S", target.path,
             ], ddlog: logger)
 
@@ -266,6 +286,15 @@ extension InjectorV3 {
         ], ddlog: logger)
         guard case let .exit(code) = retCode, code == EXIT_SUCCESS else {
             try throwCommandFailure("ct_bypass", reason: retCode)
+        }
+    }
+
+    func cmdCompatibleSign(_ target: URL, teamID: String) throws {
+        switch signingBackend {
+        case .rootlessAdHoc:
+            try cmdPseudoSign(target, force: true)
+        case .coreTrustBypass:
+            try cmdCoreTrustBypass(target, teamID: teamID)
         }
     }
 

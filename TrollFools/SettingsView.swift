@@ -16,18 +16,26 @@ struct SettingsView: View {
         _preferMainExecutable = AppStorage(wrappedValue: false, "PreferMainExecutable-\(app.bid)")
         _useFrameworkEnumerationFallback = AppStorage(wrappedValue: true, "UseFrameworkEnumerationFallback-\(app.bid)")
         _injectStrategy = AppStorage(wrappedValue: .lexicographic, "InjectStrategy-\(app.bid)")
+        _dryRun = AppStorage(wrappedValue: false, "DryRun-\(app.bid)")
     }
 
     @AppStorage var useWeakReference: Bool
     @AppStorage var preferMainExecutable: Bool
     @AppStorage var useFrameworkEnumerationFallback: Bool
     @AppStorage var injectStrategy: InjectorV3.Strategy
+    @AppStorage var dryRun: Bool
 
     @StateObject var viewControllerHost = ViewControllerHost()
 
     var body: some View {
         NavigationView {
             Form {
+                Section {
+                    Toggle(NSLocalizedString("Dry Run", comment: ""), isOn: $dryRun)
+                } footer: {
+                    paddedHeaderFooterText(NSLocalizedString("Analyze compatibility and create an injection report without modifying the app.", comment: ""))
+                }
+
                 Section {
                     Picker(NSLocalizedString("Injection Strategy", comment: ""), selection: $injectStrategy) {
                         ForEach(InjectorV3.Strategy.allCases, id: \.self) { strategy in

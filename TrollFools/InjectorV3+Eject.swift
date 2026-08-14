@@ -81,7 +81,7 @@ extension InjectorV3 {
         }
 
         try targetURLs.forEach {
-            try cmdCoreTrustBypass($0, teamID: teamID)
+            try cmdCompatibleSign($0, teamID: teamID)
             try cmdChangeOwnerToInstalld($0)
         }
 

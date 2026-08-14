@@ -30,7 +30,9 @@ final class App: ObservableObject {
     lazy var isSystem: Bool = !isUser
     lazy var isFromApple: Bool = bid.hasPrefix("com.apple.")
     lazy var isFromTroll: Bool = isSystem && !isFromApple
-    lazy var isRemovable: Bool = url.path.contains("/var/containers/Bundle/Application/")
+    lazy var isRemovable: Bool = url.standardizedFileURL.path
+        .replacingOccurrences(of: "/private/var/", with: "/var/")
+        .contains("/var/containers/Bundle/Application/")
 
     weak var appList: AppListModel?
     private var cancellables: Set<AnyCancellable> = []

@@ -45,7 +45,10 @@ final class AppListModel: ObservableObject {
     }
 
     static let isLegacyDevice: Bool = { UIScreen.main.fixedCoordinateSpace.bounds.height <= 736.0 }()
-    static let hasTrollStore: Bool = { LSApplicationProxy(forIdentifier: "com.opa334.TrollStore") != nil }()
+    static let hasTrollStore: Bool = {
+        LSApplicationProxy(forIdentifier: "com.opa334.TrollStore") != nil ||
+            LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
+    }()
     private var _allApplications: [App] = []
 
     let selectorURL: URL?
@@ -223,7 +226,10 @@ extension AppListModel {
     func rebuildIconCache() {
         // Sadly, we can't call `trollstorehelper` directly because only TrollStore can launch it without error.
         DispatchQueue.global(qos: .userInitiated).async {
-            LSApplicationWorkspace.default().openApplication(withBundleID: "com.opa334.TrollStore")
+            let bundleID = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
+                ? "com.opa334.TrollStoreLite"
+                : "com.opa334.TrollStore"
+            LSApplicationWorkspace.default().openApplication(withBundleID: bundleID)
         }
     }
 }

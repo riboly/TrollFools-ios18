@@ -26,6 +26,9 @@ struct CmdInject: ParsableCommand {
     @Flag(name: [.customLong("weak")], help: "Use weak reference.")
     var weakReference: Bool = false
 
+    @Flag(name: [.customLong("dry-run")], help: "Analyze compatibility without modifying the application.")
+    var dryRun: Bool = false
+
     func run() throws {
         guard let app = LSApplicationProxy(forIdentifier: bundleIdentifier),
               let appID = app.applicationIdentifier(),
@@ -52,6 +55,17 @@ struct CmdInject: ParsableCommand {
         }
         injector.useWeakReference = weakReference
         injector.injectStrategy = fastInjection ? .fast : .lexicographic
-        try injector.inject(pluginURLs, shouldPersist: false)
+        if dryRun {
+            let report = try injector.dryRun(pluginURLs)
+            print(report.text)
+            if !report.isSafe {
+                throw ArgumentParser.ValidationError(report.errors.joined(separator: "\n"))
+            }
+        } else {
+            try injector.inject(pluginURLs, shouldPersist: false)
+            if let report = injector.lastReport {
+                print(report.text)
+            }
+        }
     }
 }

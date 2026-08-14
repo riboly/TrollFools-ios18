@@ -12,6 +12,7 @@ struct InjectView: View {
     struct SuccessPayload {
         let logFileURL: URL?
         let didUseFallback: Bool
+        let isDryRun: Bool
     }
 
     @EnvironmentObject var appList: AppListModel
@@ -26,6 +27,7 @@ struct InjectView: View {
     @AppStorage var preferMainExecutable: Bool
     @AppStorage var useFrameworkEnumerationFallback: Bool
     @AppStorage var injectStrategy: InjectorV3.Strategy
+    @AppStorage var dryRun: Bool
 
     init(_ app: App, urlList: [URL]) {
         self.app = app
@@ -34,6 +36,7 @@ struct InjectView: View {
         _preferMainExecutable = AppStorage(wrappedValue: false, "PreferMainExecutable-\(app.bid)")
         _useFrameworkEnumerationFallback = AppStorage(wrappedValue: true, "UseFrameworkEnumerationFallback-\(app.bid)")
         _injectStrategy = AppStorage(wrappedValue: .lexicographic, "InjectStrategy-\(app.bid)")
+        _dryRun = AppStorage(wrappedValue: false, "DryRun-\(app.bid)")
     }
 
     var body: some View {
@@ -58,8 +61,8 @@ struct InjectView: View {
                 switch injectResult {
                 case let .success(payload):
                     SuccessView(
-                        title: NSLocalizedString("Completed", comment: ""),
-                        subtitle: payload.didUseFallback
+                        title: payload.isDryRun ? "SAFE TO INJECT" : NSLocalizedString("Completed", comment: ""),
+                        subtitle: !payload.isDryRun && payload.didUseFallback
                             ? NSLocalizedString("Completed with compatibility mode. The plug-in may start working after opening some app features.", comment: "")
                             : nil,
                         logFileURL: payload.logFileURL
@@ -69,7 +72,7 @@ struct InjectView: View {
                     }
                 case let .failure(error):
                     FailureView(
-                        title: NSLocalizedString("Failed", comment: ""),
+                        title: dryRun ? "NOT SAFE TO INJECT" : NSLocalizedString("Failed", comment: ""),
                         error: error
                     )
                     .onAppear {
@@ -90,7 +93,7 @@ struct InjectView: View {
                         .scaleEffect(2.0)
                 }
 
-                Text(NSLocalizedString("Injecting", comment: ""))
+                Text(dryRun ? NSLocalizedString("Analyzing", comment: "") : NSLocalizedString("Injecting", comment: ""))
                     .font(.headline)
             }
         }
@@ -119,9 +122,11 @@ struct InjectView: View {
 
     private func inject() -> Result<SuccessPayload, Error> {
         var logFileURL: URL?
+        var activeInjector: InjectorV3?
 
         do {
             let injector = try InjectorV3(app.url)
+            activeInjector = injector
             logFileURL = injector.latestLogFileURL
 
             if injector.appID.isEmpty {
@@ -137,10 +142,20 @@ struct InjectView: View {
             injector.useFrameworkEnumerationFallback = useFrameworkEnumerationFallback
             injector.injectStrategy = injectStrategy
 
-            try injector.inject(urlList, shouldPersist: true)
+            if dryRun {
+                let report = try injector.dryRun(urlList)
+                guard report.isSafe else {
+                    var userInfo: [String: Any] = [NSLocalizedDescriptionKey: report.errors.joined(separator: "\n")]
+                    if let reportURL = injector.latestReportURL { userInfo[NSURLErrorKey] = reportURL }
+                    throw NSError(domain: Constants.gErrorDomain, code: 1, userInfo: userInfo)
+                }
+            } else {
+                try injector.inject(urlList, shouldPersist: true)
+            }
             return .success(SuccessPayload(
-                logFileURL: injector.latestLogFileURL,
-                didUseFallback: injector.didUseMachOEnumerationFallback
+                logFileURL: injector.latestReportURL ?? injector.latestLogFileURL,
+                didUseFallback: injector.didUseMachOEnumerationFallback,
+                isDryRun: dryRun
             ))
 
         } catch {
@@ -150,8 +165,8 @@ struct InjectView: View {
                 NSLocalizedDescriptionKey: error.localizedDescription,
             ]
 
-            if let logFileURL {
-                userInfo[NSURLErrorKey] = logFileURL
+            if let reportURL = (error as NSError).userInfo[NSURLErrorKey] as? URL ?? activeInjector?.latestReportURL ?? logFileURL {
+                userInfo[NSURLErrorKey] = reportURL
             }
 
             let nsErr = NSError(domain: Constants.gErrorDomain, code: 0, userInfo: userInfo)

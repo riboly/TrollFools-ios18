@@ -14,6 +14,11 @@ final class InjectorV3 {
         case file
     }
 
+    enum SigningBackend: String, Codable {
+        case coreTrustBypass = "CoreTrust/ChOma"
+        case rootlessAdHoc = "Rootless ad-hoc"
+    }
+
     static let temporaryRoot: URL = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask).first!
         .appendingPathComponent(Constants.gAppIdentifier, isDirectory: true)
@@ -37,6 +42,17 @@ final class InjectorV3 {
     var useFrameworkEnumerationFallback: Bool = true
     var injectStrategy: Strategy = .lexicographic
     var didUseMachOEnumerationFallback: Bool = false
+    private(set) var lastReport: InjectionReport?
+    private(set) var latestReportURL: URL?
+
+    var signingBackend: SigningBackend {
+        let hasTrollStoreLite = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
+        let rootlessLdid = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
+        if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: rootlessLdid.path) {
+            return .rootlessAdHoc
+        }
+        return .coreTrustBypass
+    }
 
     let logger: DDLog
     let loggerType: LoggerType

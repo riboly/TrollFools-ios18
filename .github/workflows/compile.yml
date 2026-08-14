@@ -56,8 +56,32 @@ jobs:
           ref: master
           path: ${{ env.THEOS }}/sdks
 
+      - name: Checkout ChOma
+        uses: actions/checkout@v4.1.1
+        with:
+          repository: opa334/ChOma
+          ref: 7dccded6bc17081c08f5f5cdbd7a4b051543a825
+          path: choma
+
+      - name: Build Current ChOma Helper
+        run: |
+          make -C choma TARGET=ios DISABLE_TESTS=1
+          make -C choma TARGET=ios output/ios/tests/ct_bypass
+          cp choma/output/ios/tests/ct_bypass TrollFools/ct_bypass
+          ldid -S TrollFools/ct_bypass
+
       - name: Build Packages
         run: |
           make package
-          cp packages/*.tipa .
+          cp packages/*.tipa packages/*.deb .
           find .theos/obj -name "*.dSYM" -exec cp -r {} . \;
+
+      - name: Upload Packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: TrollFools-iOS18-${{ env.VERSION }}
+          if-no-files-found: error
+          path: |
+            *.tipa
+            *.deb
+            *.dSYM

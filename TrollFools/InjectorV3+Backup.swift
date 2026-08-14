@@ -11,6 +11,27 @@ extension InjectorV3 {
     // MARK: - Constants
 
     static let alternateSuffix = "troll-fools.bak"
+    static let injectionBackupsRoot = URL(fileURLWithPath: "/var/mobile/Library/TrollFools/InjectionBackups", isDirectory: true)
+
+    struct InjectionBackupEntry: Codable {
+        let relativePath: String
+        let existed: Bool
+        let isDirectory: Bool
+    }
+
+    final class InjectionTransaction {
+        let identifier: String
+        let rootURL: URL
+        let entries: [InjectionBackupEntry]
+        let originalEntitlements: String?
+
+        init(identifier: String, rootURL: URL, entries: [InjectionBackupEntry], originalEntitlements: String?) {
+            self.identifier = identifier
+            self.rootURL = rootURL
+            self.entries = entries
+            self.originalEntitlements = originalEntitlements
+        }
+    }
 
     static func alternateURL(for target: URL) -> URL {
         target.appendingPathExtension(Self.alternateSuffix)
@@ -45,5 +66,90 @@ extension InjectorV3 {
         }
         let alternateURL = Self.alternateURL(for: target)
         try cmdMove(from: alternateURL, to: target, overwrite: true)
+    }
+
+    func beginInjectionTransaction(targetMachO: URL?, destinationURLs: [URL], metadata: MachOMetadata?) throws -> InjectionTransaction {
+        let identifier = "\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)"
+        let rootURL = Self.injectionBackupsRoot
+            .appendingPathComponent(appID, isDirectory: true)
+            .appendingPathComponent(identifier, isDirectory: true)
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
+
+        let codeSignatureURL = bundleURL.appendingPathComponent("_CodeSignature", isDirectory: true)
+        let provisioningURL = bundleURL.appendingPathComponent("embedded.mobileprovision")
+        let infoPlistURL = bundleURL.appendingPathComponent("Info.plist")
+        var protectedURLs = [executableURL!, infoPlistURL, codeSignatureURL, provisioningURL]
+        if let targetMachO { protectedURLs.append(targetMachO) }
+        protectedURLs.append(contentsOf: destinationURLs)
+
+        var seen = Set<String>()
+        var entries = [InjectionBackupEntry]()
+        for sourceURL in protectedURLs {
+            let normalized = sourceURL.standardizedFileURL
+            let relativePath = try relativeBundlePath(normalized)
+            guard seen.insert(relativePath).inserted else { continue }
+
+            var isDirectory: ObjCBool = false
+            let existed = FileManager.default.fileExists(atPath: normalized.path, isDirectory: &isDirectory)
+            let entry = InjectionBackupEntry(relativePath: relativePath, existed: existed, isDirectory: isDirectory.boolValue)
+            entries.append(entry)
+            guard existed else { continue }
+
+            let backupURL = rootURL.appendingPathComponent("Files", isDirectory: true).appendingPathComponent(relativePath)
+            try FileManager.default.createDirectory(at: backupURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try cmdCopy(from: normalized, to: backupURL, clone: true, overwrite: true)
+        }
+
+        let originalEntitlements = try? cmdExtractEntitlements(executableURL)
+        if let originalEntitlements {
+            try originalEntitlements.write(
+                to: rootURL.appendingPathComponent("entitlements.xml"),
+                atomically: true,
+                encoding: .utf8
+            )
+        }
+        if let metadata {
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            try encoder.encode(metadata).write(to: rootURL.appendingPathComponent("original-mach-o.json"), options: .atomic)
+        }
+
+        let manifestURL = rootURL.appendingPathComponent("manifest.json")
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(entries).write(to: manifestURL, options: .atomic)
+        return InjectionTransaction(
+            identifier: identifier,
+            rootURL: rootURL,
+            entries: entries,
+            originalEntitlements: originalEntitlements
+        )
+    }
+
+    func rollbackInjectionTransaction(_ transaction: InjectionTransaction) throws {
+        for entry in transaction.entries.reversed() {
+            let targetURL = bundleURL.appendingPathComponent(entry.relativePath)
+            if entry.existed {
+                let backupURL = transaction.rootURL
+                    .appendingPathComponent("Files", isDirectory: true)
+                    .appendingPathComponent(entry.relativePath)
+                guard FileManager.default.fileExists(atPath: backupURL.path) else {
+                    throw Error.generic("Backup is incomplete: \(entry.relativePath)")
+                }
+                try cmdCopy(from: backupURL, to: targetURL, clone: true, overwrite: true)
+            } else if FileManager.default.fileExists(atPath: targetURL.path) {
+                try cmdRemove(targetURL, recursively: entry.isDirectory || checkIsDirectory(targetURL))
+            }
+        }
+        try cmdChangeOwnerToInstalld(bundleURL, recursively: true)
+    }
+
+    private func relativeBundlePath(_ url: URL) throws -> String {
+        let root = bundleURL.standardizedFileURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let path = url.standardizedFileURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard path == root || path.hasPrefix(root + "/") else {
+            throw Error.generic("Backup target is outside the app bundle: \(url.path)")
+        }
+        return path == root ? "." : String(path.dropFirst(root.count + 1))
     }
 }
