@@ -116,8 +116,9 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 6. 解析 TIPA 内 Info.plist，核对名称、Bundle ID、版本、ZIP 完整性和 `0755` 权限。
 7. 解析主程序及 `ct_bypass` Mach-O 架构、slice 数和签名区，检查 helper 是否异常膨胀。
 8. 核对 `TrollFoolsLoader.dylib` 为 arm64+arm64e、install name 为 `@rpath/TrollFoolsLoader.dylib`，并包含 `__DATA,__interpose`；确认它只存在于 App 资源内，不残留为独立 rootless 库。
-9. 计算 SHA-256，并复制到当前任务指定的输出目录；不要假设固定桌面路径。
-10. 输出 GitHub Actions 链接、提交哈希、文件路径、SHA-256 和验证级别。
+9. 使用 `devkit/collect-dsyms.sh` 按架构合并同名 dSYM，并确认 Loader/Tweak dSYM 均包含 arm64+arm64e，避免复制覆盖 arm64e 调试符号。
+10. 计算 SHA-256，并复制到当前任务指定的输出目录；不要假设固定桌面路径。
+11. 输出 GitHub Actions 链接、提交哈希、文件路径、SHA-256 和验证级别。
 
 ## 9. 新会话直接用法
 

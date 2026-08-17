@@ -16,6 +16,7 @@
 - 插件管理：停用、启用、卸载及全部移除均同步维护 Loader 清单；最后一个延迟插件移除后清理 Loader。
 - 事务保障：Loader 与清单纳入 Dry Run、签名验证、备份和回滚。
 - 发布验证：GitHub Actions 校验 Loader 的 arm64/arm64e slices、install name、`__interpose` section 及 DEB 独立库残留。
+- 调试符号：按架构合并同名 dSYM，避免 artifact 汇总时覆盖 arm64e 调试符号，并校验 Loader/Tweak dSYM 的双架构完整性。
 
 ------
 
@@ -35,6 +36,7 @@ Fixed launch crashes caused by some successfully injected and signed plug-ins in
 - Plug-in management: Disable, enable, eject, and remove-all flows keep the loader manifest synchronized and remove the loader after the final deferred plug-in.
 - Transaction safety: Included the loader and manifest in Dry Run, signing validation, backup, and rollback.
 - Release validation: GitHub Actions checks loader arm64/arm64e slices, install name, `__interpose` section, and standalone DEB library residue.
+- Debug symbols: Merge same-name dSYMs by architecture so artifact collection cannot overwrite arm64e symbols, and validate dual-architecture Loader/Tweak dSYMs.
 
 ------
 

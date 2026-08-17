@@ -63,7 +63,7 @@ jobs:
         run: |
           make package
           cp packages/*.tipa packages/*.deb .
-          find .theos/obj -name "*.dSYM" -exec cp -r {} . \;
+          bash devkit/collect-dsyms.sh .theos/obj .
 
       - name: Validate Deferred Loader
         run: |
@@ -74,6 +74,10 @@ jobs:
           lipo "$LOADER" -verify_arch arm64 arm64e
           otool -D "$LOADER" | grep -q '@rpath/TrollFoolsLoader.dylib'
           otool -l "$LOADER" | grep -q '__interpose'
+          lipo TrollFoolsLoader.dylib.dSYM/Contents/Resources/DWARF/TrollFoolsLoader.dylib \
+            -verify_arch arm64 arm64e
+          lipo TrollFoolsTweak.dylib.dSYM/Contents/Resources/DWARF/TrollFoolsTweak.dylib \
+            -verify_arch arm64 arm64e
           ! dpkg-deb --contents wiki.qaq.trollfools.l_*.deb \
             | grep -Eq '[.]/(var/jb/)?usr/local/lib/TrollFoolsLoader[.]dylib$'
 

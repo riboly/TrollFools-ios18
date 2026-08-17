@@ -48,6 +48,8 @@ Do not equate a successful workflow with a usable TrollStore Lite package. After
 
 When `TrollFoolsLoader.dylib` is packaged, also verify that it is executable, contains arm64 and arm64e slices, has install name `@rpath/TrollFoolsLoader.dylib`, contains `__DATA,__interpose`, and is not left as a standalone `/usr/local/lib` or `/var/jb/usr/local/lib` package entry.
 
+Collect same-name multi-architecture dSYM bundles with `devkit/collect-dsyms.sh`; recursive copies overwrite DWARF files and can silently discard arm64e symbols. Verify both `TrollFoolsLoader.dylib.dSYM` and `TrollFoolsTweak.dylib.dSYM` contain arm64 and arm64e.
+
 Regression tripwire: do not reintroduce CI steps that rebuild and replace `TrollFools/ct_bypass` with a large fat helper. The source helper at the 259 baseline was 204,800 bytes; the signed packaged helper was approximately 213 KB and thin arm64.
 
 ## Delivery
