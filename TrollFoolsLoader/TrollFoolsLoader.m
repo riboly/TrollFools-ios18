@@ -145,7 +145,8 @@ static NSUInteger TFInstallReentrantUIKitSetterGuards(NSString *plugInPath)
         return 0;
     }
 
-    Class *classes = calloc((size_t)classCount, sizeof(Class));
+    __unsafe_unretained Class *classes = (__unsafe_unretained Class *)calloc(
+        (size_t)classCount, sizeof(Class));
     if (classes == NULL) {
         return 0;
     }
