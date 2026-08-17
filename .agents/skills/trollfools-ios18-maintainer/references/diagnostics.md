@@ -41,6 +41,8 @@ Inspect the ZIP, not only the extension:
 
 Check architecture intersection, encryption state, available header padding, requested load-command size, `__LINKEDIT` bounds, chained fixups/exports trie metadata, dependencies, and target selection strategy.
 
+For an unresolved `@rpath/<leaf>.dylib`, first check same-batch assets, the target App's Frameworks directory, and loader-relative paths. If those do not resolve it, test the canonical `/usr/lib/<leaf>.dylib` with `dlopen_preflight`; iOS shared-cache libraries may not exist as standalone filesystem files. A confirmed system alias requires safe `/usr/lib` rpath insertion into each affected plug-in slice. A failed dyld preflight remains an unresolved third-party dependency and must block injection.
+
 ### `ldid` Exits Nonzero
 
 Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm both bundled and `/var/jb/usr/bin/ldid` candidates were attempted in rootless mode. A generic `return value 1` is a logging defect, not a root-cause diagnosis.

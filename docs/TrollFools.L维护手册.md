@@ -34,6 +34,7 @@
 - `4.3-260`：**DEVICE VERIFIED（微信与 Telegram 报告场景）**。严格插件权限和幂等 load-command 验证修复已在真机确认。
 - `4.3-261`：加入启动前兼容 Loader；其精确安装包未单独完成真机验证，后续由 262 的保护版本取代。
 - `4.3-262`：**DEVICE VERIFIED（DYYY 启动前兼容加载及 UIKit setter 递归场景）**。用户在主设备重新注入并开启兼容加载后确认抖音成功启动。保护实现不绑定 DYYY，但本次结果不代表任意插件、任意 selector 或所有崩溃类型均已验证。
+- `4.3-263`：识别经 dyld 确认的 `@rpath/<系统 dylib>`，为插件安全补入 `/usr/lib` rpath，并保持真实第三方依赖缺失为阻断错误；创建时为 **STATICALLY VERIFIED**。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -51,6 +52,7 @@
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
 - 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
 - 兼容加载重入保护：插件 `dlopen` 完成后，仅包装该插件在 `UIView` 子类上实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归时转发到父类 setter，避免插件内部重复 setter 导致栈溢出
+- 系统 dylib 别名兼容：当插件依赖为 `@rpath/<leaf>.dylib` 时，用 `dlopen_preflight` 检查 `/usr/lib/<leaf>.dylib` 是否由当前 iOS/dyld cache 提供；确认后检查插件 header padding 并补 `/usr/lib` rpath，Dry Run 与真实注入执行同一规范化
 
 ## 5. 关键代码位置
 
@@ -84,6 +86,8 @@ iOS crash/Jetsam 日志路径：
 ```
 
 必须区分：TIPA 导入失败、预检失败、Mach-O 修改失败、ldid/签名失败、验证/回滚失败、AMFI/dyld 启动拒绝、插件初始化崩溃。不能把所有问题直接归因于“iOS 18 不支持”。
+
+iOS 的系统 dylib 可能只存在于 dyld shared cache，`FileManager.fileExists("/usr/lib/...")` 返回 false 不能证明依赖缺失。对于 `@rpath/<leaf>.dylib`，应先用 dyld 的 `dlopen_preflight` 检查规范 `/usr/lib` 路径；成功时可通过插件自身的 `/usr/lib` rpath 解析，失败且 App/同批资产中也找不到时才属于真正未解析依赖。不得把任意 `@rpath` 依赖直接降级为警告。
 
 `FRONTBOARD 0x8BADF00D` 不一定只是“插件加载太慢”。如果触发线程同时出现同一个插件 image offset 数百次连续重复，并最终接近 stack guard，应判定为插件递归导致的栈耗尽；watchdog 只是启动时间被递归消耗后的次生终止。Build 262 的可选兼容 Loader 会保护插件自有 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook 的同对象递归重入，且该机制已在 DYYY 报告场景完成真机验证；它不会吞掉任意插件异常，不会覆盖其他 selector，也不会修改插件偏好。
 

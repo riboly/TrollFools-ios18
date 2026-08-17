@@ -6,6 +6,7 @@
 //
 
 import CocoaLumberjackSwift
+import Darwin
 import Foundation
 
 extension InjectorV3 {
@@ -157,6 +158,7 @@ extension InjectorV3 {
         }
 
         try assetURLs.forEach {
+            try ensureSystemDylibRuntimePath($0)
             try standardizeLoadCommandDylibToSubstrate($0)
             try applyCompatibleSignature($0)
         }
@@ -422,6 +424,7 @@ extension InjectorV3 {
                 inspectedAssets.append(metadata)
                 requestedLoadCommands.append(try loadCommandNameOfAsset(assetURL))
                 validateAssetDependencies(metadata, availableAssets: assetURLs, warnings: &warnings, errors: &errors)
+                validateSystemDylibRuntimePathInsertion(metadata, errors: &errors)
                 validateMinimumOS(metadata, errors: &errors)
             } catch {
                 errors.append("Cannot inspect \(assetURL.lastPathComponent): \(error.localizedDescription)")
@@ -435,6 +438,7 @@ extension InjectorV3 {
                 deferredLoaderMetadata = metadata
                 requestedLoadCommands = [try loadCommandNameOfAsset(loaderURL)]
                 validateAssetDependencies(metadata, availableAssets: assetURLs, warnings: &warnings, errors: &errors)
+                validateSystemDylibRuntimePathInsertion(metadata, errors: &errors)
                 validateMinimumOS(metadata, errors: &errors)
                 let paths = try injectableAssets.map { try deferredLoadPath(of: $0) }
                 warnings.append("Pre-main compatibility loading enabled for: \(paths.joined(separator: ", ")).")
@@ -521,12 +525,15 @@ extension InjectorV3 {
         for assetURL in injectableAssets {
             let copyURL = simulationURL.appendingPathComponent(assetURL.lastPathComponent)
             try FileManager.default.copyItem(at: assetURL, to: copyURL)
+            try ensureSystemDylibRuntimePath(copyURL)
+            try standardizeLoadCommandDylibToSubstrate(copyURL)
             let executable = checkIsBundle(copyURL) ? try locateExecutableInBundle(copyURL) : copyURL
             try cmdPseudoSign(executable, force: true)
             let metadata = try inspectMachO(executable)
             guard metadata.codeSignaturesValid else {
                 throw Error.generic("Dry Run produced an invalid CodeDirectory for \(assetURL.lastPathComponent).")
             }
+            try validateNormalizedSystemDylibRuntimePaths(metadata)
             report.warnings.append("Signing simulation passed for \(assetURL.lastPathComponent).")
         }
 
@@ -655,6 +662,11 @@ extension InjectorV3 {
             if !finalAsset.codeSignaturesValid {
                 report.errors.append("Final injected asset signature is invalid: \(copiedURL.lastPathComponent).")
             }
+            do {
+                try validateNormalizedSystemDylibRuntimePaths(finalAsset)
+            } catch {
+                report.errors.append(error.localizedDescription)
+            }
         }
 
         if deferPlugInLoading {
@@ -765,11 +777,89 @@ extension InjectorV3 {
                 {
                     continue
                 }
+                if let systemPath = systemDylibPath(for: dependency) {
+                    let warning = "System dyld-cache dependency will resolve through /usr/lib: \(dependency) -> \(systemPath)"
+                    if !warnings.contains(warning) {
+                        warnings.append(warning)
+                    }
+                    continue
+                }
                 if dependency.hasPrefix("@rpath/") || dependency.hasPrefix("@loader_path/") || dependency.hasPrefix("@executable_path/") {
                     errors.append("Unresolved dependency for \(URL(fileURLWithPath: metadata.path).lastPathComponent): \(dependency)")
                 } else {
                     warnings.append("Non-system absolute dependency requires device verification: \(dependency)")
                 }
+            }
+        }
+    }
+
+    fileprivate func validateSystemDylibRuntimePathInsertion(_ metadata: MachOMetadata, errors: inout [String]) {
+        let containsSystemAliases = metadata.slices.contains { slice in
+            slice.dependencies.contains(where: { systemDylibPath(for: $0) != nil })
+        }
+        guard containsSystemAliases else { return }
+
+        let slicesWithRuntimePath = metadata.slices.filter {
+            $0.runtimePaths.contains(Self.systemDylibRuntimePath)
+        }
+        if !slicesWithRuntimePath.isEmpty, slicesWithRuntimePath.count != metadata.slices.count {
+            errors.append("System dylib runtime path is inconsistent across plug-in architectures: \(URL(fileURLWithPath: metadata.path).lastPathComponent).")
+            return
+        }
+        guard slicesWithRuntimePath.isEmpty else { return }
+
+        let required = UInt64(alignedLoadCommandSize(base: 12, string: Self.systemDylibRuntimePath))
+        for slice in metadata.slices {
+            if slice.headerPadding < required {
+                errors.append("Insufficient plug-in load-command padding for \(slice.architecture): need \(required) to resolve system dylibs, have \(slice.headerPadding).")
+            } else if !slice.headerPaddingIsZeroFilled {
+                errors.append("Plug-in load-command padding contains mapped data for \(slice.architecture); cannot add the system dylib runtime path safely.")
+            }
+        }
+    }
+
+    fileprivate static let systemDylibRuntimePath = "/usr/lib"
+
+    fileprivate func systemDylibPath(for dependency: String) -> String? {
+        let prefix = "@rpath/"
+        guard dependency.hasPrefix(prefix) else { return nil }
+
+        let relativePath = String(dependency.dropFirst(prefix.count))
+        guard !relativePath.isEmpty,
+              !relativePath.contains("/"),
+              relativePath.hasSuffix(".dylib")
+        else { return nil }
+
+        let candidate = "\(Self.systemDylibRuntimePath)/\(relativePath)"
+        return candidate.withCString { dlopen_preflight($0) } ? candidate : nil
+    }
+
+    fileprivate func ensureSystemDylibRuntimePath(_ assetURL: URL) throws {
+        let executable = checkIsBundle(assetURL) ? try locateExecutableInBundle(assetURL) : assetURL
+        let metadata = try inspectMachO(executable)
+        let slicesNeedingRuntimePath = metadata.slices.filter { slice in
+            slice.dependencies.contains(where: { systemDylibPath(for: $0) != nil }) &&
+                !slice.runtimePaths.contains(Self.systemDylibRuntimePath)
+        }
+        guard !slicesNeedingRuntimePath.isEmpty else { return }
+
+        let slicesAlreadyContainingRuntimePath = metadata.slices.filter {
+            $0.runtimePaths.contains(Self.systemDylibRuntimePath)
+        }
+        guard slicesAlreadyContainingRuntimePath.isEmpty else {
+            throw Error.generic("System dylib runtime path is inconsistent across plug-in architectures: \(executable.lastPathComponent).")
+        }
+
+        try cmdInsertLoadCommandRuntimePath(executable, name: Self.systemDylibRuntimePath)
+        try validateNormalizedSystemDylibRuntimePaths(try inspectMachO(executable))
+        DDLogInfo("Added /usr/lib runtime path for system dyld-cache dependencies in \(executable.path)", ddlog: logger)
+    }
+
+    fileprivate func validateNormalizedSystemDylibRuntimePaths(_ metadata: MachOMetadata) throws {
+        for slice in metadata.slices {
+            let aliases = slice.dependencies.filter { systemDylibPath(for: $0) != nil }
+            if !aliases.isEmpty, !slice.runtimePaths.contains(Self.systemDylibRuntimePath) {
+                throw Error.generic("Missing /usr/lib runtime path for system dependencies in \(slice.architecture): \(aliases.joined(separator: ", ")).")
             }
         }
     }

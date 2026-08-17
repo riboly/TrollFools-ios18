@@ -20,6 +20,7 @@ Treat the checked-out repository and supplied device logs as authoritative. Do n
 - Preserve the injection behavior of version `4.3-258`, confirmed working on the real target device.
 - Treat `4.3-259` branding/UI/package as statically verified until installed and tested on the device.
 - Treat `4.3-262` as device-verified for the reported DYYY pre-main UIKit setter recursion on the primary device. This verifies the generic guard for that failure class, not every plug-in or crash class.
+- Treat `4.3-263` as statically verified until the reported HBWechatHelper and MikotoHelper injections are tested on the primary device.
 - Keep Dopamine rootless distinct from RootHide and rootful. Use `/var/jb`; do not introduce `.roothide` or randomized `.jbroot-*` assumptions.
 - Treat a connected iPhone as read-only. Do not install packages, alter files, inject processes, restart services, or change settings unless the user explicitly authorizes that exact operation in the current task.
 - Do not modify `GSPlayerInfo.dylib` to hide an injector defect.
@@ -49,6 +50,7 @@ Dry Run intentionally modifies temporary copies only. A successful Dry Run must 
 - For constructor or Objective-C `+load` crashes caused by injecting into an early framework, use the optional pre-main deferred loader rather than weakening validation. Preserve direct loading as the default baseline.
 - In pre-main mode, keep post-`dlopen` UIKit setter reentrancy guards scoped to implementations owned by the loaded plug-in. Never apply a process-wide setter swizzle or hard-code an app, plug-in, class, or preference key.
 - Treat `0x8BADF00D` plus hundreds of identical plug-in frames as recursion/stack exhaustion with a secondary watchdog termination. A watchdog code alone is not proof that `dlopen` was merely slow.
+- For `@rpath/<leaf>.dylib`, do not infer a missing system library from filesystem absence. Accept it as a system dyld-cache alias only when `dlopen_preflight` confirms `/usr/lib/<leaf>.dylib`, add `/usr/lib` to the plug-in after validating every slice's header padding, and keep unknown third-party dependencies fatal.
 - Keep all user-facing Chinese strings in localization files.
 - Update `devkit/bump-version.sh` if a branding or identifier change must survive future version bumps.
 - When reusable maintenance knowledge changes, update this repo-local Skill and the maintenance manual, push both with the code, then sync the installed Skill from this directory.

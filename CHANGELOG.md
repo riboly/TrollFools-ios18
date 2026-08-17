@@ -1,5 +1,33 @@
 # Changelog
 
+## 4.3 Build 263 (2026-08-17)
+
+修复插件把 iOS 系统 dylib 写成 `@rpath/<名称>` 时，被依赖预检误判为缺少第三方库而拒绝注入的问题。
+
+### 修复与优化
+
+- dyld cache 能力检测：仅当 `dlopen_preflight("/usr/lib/<名称>")` 确认当前 iOS 可解析该系统库时，才将对应 `@rpath` 依赖视为系统库，不使用易过期的插件/App 白名单。
+- 安全 rpath 规范化：检查插件每个 Mach-O slice 的 header padding 后补入 `/usr/lib` rpath，使 dyld 能在运行时解析系统库别名；真正缺失的第三方 dylib 仍会阻止注入。
+- Dry Run 一致性：Dry Run 临时副本执行与真实注入相同的系统 rpath 和 Substrate load-command 规范化，再重新签名及验证。
+- 注入后验证：复制后的插件必须在所有相关 slice 中保留 `/usr/lib` rpath 和有效 CodeDirectory，否则事务回滚。
+- 覆盖报告：修复 `HBWechatHelper.dylib` 的 `libiconv/libbz2/libz/libobjc/libc++/libSystem` 误报，以及 `MikotoHelper.dylib` 的 `libobjc/libc++/libSystem/libsqlite3` 误报。
+
+------
+
+## 4.3 Build 263 (2026-08-17) [EN]
+
+Fixed dependency preflight rejecting plug-ins whose iOS system dylibs use `@rpath/<name>` aliases.
+
+### Fixed and improved
+
+- Dyld-cache capability detection: An `@rpath` dependency is treated as a system dylib only when `dlopen_preflight("/usr/lib/<name>")` confirms that the current iOS can resolve it. No app or plug-in allowlist is used.
+- Safe rpath normalization: After checking every plug-in Mach-O slice for usable header padding, injection adds `/usr/lib` as an rpath so dyld can resolve verified system aliases. Missing third-party dylibs remain fatal.
+- Dry Run parity: Temporary Dry Run copies receive the same system-rpath and Substrate load-command normalization before re-signing and validation.
+- Post-injection validation: Every relevant copied plug-in slice must retain the `/usr/lib` rpath and a valid CodeDirectory, otherwise the transaction rolls back.
+- Report coverage: Fixes false missing-dependency results for the system libraries reported by `HBWechatHelper.dylib` and `MikotoHelper.dylib`.
+
+------
+
 ## 4.3 Build 262 (2026-08-17)
 
 修复兼容加载成功后，部分插件的 UIKit setter hook 因对同一对象重复发送相同 setter 而递归至栈溢出的问题。

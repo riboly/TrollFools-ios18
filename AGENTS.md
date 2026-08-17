@@ -7,6 +7,7 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - `4.3-258` is device-verified for successful `GSPlayerInfo.dylib` injection on iPhone XS Max/A12, iOS 18.2.1, Dopamine Rootless 3.0.5, and TrollStore Lite 2.1.1.
 - `4.3-259` is the TrollFools.L branding/UI build and was statically verified when produced.
 - `4.3-262` is device-verified for the reported DYYY pre-main compatibility-loading crash. Its plug-in-owned UIKit setter reentrancy guards are generic for the covered selectors; keep them scoped to the pre-main Loader and do not turn them into process-wide swizzles.
+- `4.3-263` recognizes `@rpath/<leaf>.dylib` aliases only when `dlopen_preflight` confirms the canonical `/usr/lib` system library, then adds and validates the plug-in's `/usr/lib` rpath. Do not downgrade genuinely missing third-party dependencies to warnings.
 - Do not reintroduce CI rebuilding/replacement of `TrollFools/ct_bypass`; this caused the unusable 4.3-254 TIPA regression.
 - Preserve iOS 14-17 behavior while prioritizing the stated iOS 18 rootless environment.
 
@@ -16,6 +17,7 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - Treat any connected iPhone as read-only. Do not install, alter files, inject processes, restart services, or change settings without explicit authorization for that exact operation.
 - Diagnose from injection reports, application logs, and crash logs before editing.
 - Treat `0x8BADF00D` plus hundreds of identical plug-in frames as recursion/stack exhaustion before assuming a slow launch.
+- Do not use filesystem existence alone for `/usr/lib` dependencies because iOS system dylibs may exist only in the dyld shared cache. Confirm them through dyld capability checks and keep unresolved third-party dependencies fatal.
 - Do not modify test dylibs, disable signing/Mach-O validation, swallow failures, or hard-code a target app.
 - Preserve entitlements, backup, validation, report sharing, and rollback.
 - Prefer capability detection and minimal changes.
