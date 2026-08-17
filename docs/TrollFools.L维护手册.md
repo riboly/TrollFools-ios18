@@ -34,7 +34,7 @@
 - `4.3-260`：**DEVICE VERIFIED（微信与 Telegram 报告场景）**。严格插件权限和幂等 load-command 验证修复已在真机确认。
 - `4.3-261`：加入启动前兼容 Loader；其精确安装包未单独完成真机验证，后续由 262 的保护版本取代。
 - `4.3-262`：**DEVICE VERIFIED（DYYY 启动前兼容加载及 UIKit setter 递归场景）**。用户在主设备重新注入并开启兼容加载后确认抖音成功启动。保护实现不绑定 DYYY，但本次结果不代表任意插件、任意 selector 或所有崩溃类型均已验证。
-- `4.3-263`：识别经 dyld 确认的 `@rpath/<系统 dylib>`，为插件安全补入 `/usr/lib` rpath，并保持真实第三方依赖缺失为阻断错误；创建时为 **STATICALLY VERIFIED**。
+- `4.3-263`：**DEVICE VERIFIED（HBWechatHelper 与 MikotoHelper 报告场景）**。识别经 dyld 确认的 `@rpath/<系统 dylib>`，为插件安全补入 `/usr/lib` rpath，并保持真实第三方依赖缺失为阻断错误。用户已在主设备确认两个插件均能成功注入微信并正常使用；这不代表任意插件依赖均已验证。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 

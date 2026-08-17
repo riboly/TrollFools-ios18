@@ -11,6 +11,7 @@
 - Dry Run 一致性：Dry Run 临时副本执行与真实注入相同的系统 rpath 和 Substrate load-command 规范化，再重新签名及验证。
 - 注入后验证：复制后的插件必须在所有相关 slice 中保留 `/usr/lib` rpath 和有效 CodeDirectory，否则事务回滚。
 - 覆盖报告：修复 `HBWechatHelper.dylib` 的 `libiconv/libbz2/libz/libobjc/libc++/libSystem` 误报，以及 `MikotoHelper.dylib` 的 `libobjc/libc++/libSystem/libsqlite3` 误报。
+- 真机验证：用户确认 Build 263 在主设备上可成功注入 `HBWechatHelper.dylib` 和 `MikotoHelper.dylib`，两个插件均可在微信正常使用。
 
 ------
 
@@ -25,6 +26,7 @@ Fixed dependency preflight rejecting plug-ins whose iOS system dylibs use `@rpat
 - Dry Run parity: Temporary Dry Run copies receive the same system-rpath and Substrate load-command normalization before re-signing and validation.
 - Post-injection validation: Every relevant copied plug-in slice must retain the `/usr/lib` rpath and a valid CodeDirectory, otherwise the transaction rolls back.
 - Report coverage: Fixes false missing-dependency results for the system libraries reported by `HBWechatHelper.dylib` and `MikotoHelper.dylib`.
+- Device validation: The user confirmed that Build 263 successfully injects both `HBWechatHelper.dylib` and `MikotoHelper.dylib` on the primary device and that both plug-ins work normally in WeChat.
 
 ------
 
