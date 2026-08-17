@@ -20,10 +20,14 @@ extension InjectorV3 {
         "libsubstrate.dylib",
         "libsubstitute.dylib",
         "libellekit.dylib",
+        "trollfoolsloader.dylib",
     ]
 
     static let substrateName = "CydiaSubstrate"
     static let substrateFwkName = "CydiaSubstrate.framework"
+    static let deferredLoaderName = "TrollFoolsLoader"
+    static let deferredLoaderFileName = "\(deferredLoaderName).dylib"
+    static let deferredLoaderManifestName = "TrollFoolsLoader.plist"
 
     fileprivate static let infoPlistName = "Info.plist"
     fileprivate static let injectedMarkerName = ".troll-fools"

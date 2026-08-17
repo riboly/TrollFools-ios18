@@ -312,6 +312,8 @@
 
 /* Injection debugging and strategy descriptions */
 "Dry Run" = "Injection Debug (Dry Run)";
+"Pre-main Compatibility Loading" = "Pre-main Compatibility Loading";
+"Loads plug-ins after app frameworks initialize but before app launch. Enable this when injection succeeds but the target app crashes immediately." = "Loads plug-ins after app frameworks initialize but before app launch. Enable this when injection succeeds but the target app crashes immediately.";
 "Enable Injection Debug?" = "Enable Injection Debug?";
 "Injection Debug performs a complete simulation on temporary copies. It does not inject the plug-in, so the plug-in list remains empty. This option takes longer and will turn off automatically the next time TrollFools starts." = "Injection Debug performs a complete simulation on temporary copies. It does not inject the plug-in, so the plug-in list remains empty. This option takes longer and will turn off automatically the next time TrollFools starts.";
 "Enable" = "Enable";

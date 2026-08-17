@@ -60,6 +60,8 @@ Separate these causes with the crash log:
 9. minimum OS/platform mismatch
 10. app-specific anti-tamper or runtime assumptions
 
+When a plug-in works after being attached to a decrypted IPA main executable but crashes after TrollFools selects an early framework, compare initializer order. The optional pre-main compatibility mode should report `Loading Mode: Pre-main deferred`, request only `@rpath/TrollFoolsLoader.dylib`, and list the plug-in in `Frameworks/TrollFoolsLoader.plist`. It must remove any direct load command for that deferred plug-in. A crash log is still required to distinguish a remaining hook-engine or app-version incompatibility.
+
 Do not label a crash as “iOS 18 incompatibility” without evidence identifying one of these layers.
 
 ## Report Integrity
@@ -72,6 +74,7 @@ Injection reports should preserve:
 - dylib architecture, install name, dependencies, rpaths, Objective-C/Swift metadata
 - chained fixups, exports trie, function starts, data-in-code, and `__LINKEDIT`
 - added load commands, warnings, errors, backup path, signing result, validation result, and rollback status
+- direct versus pre-main deferred loading mode, loader manifest entries, and conversion away from stale direct load commands
 
 Never remove report viewing or sharing while changing the success/failure UI.
 

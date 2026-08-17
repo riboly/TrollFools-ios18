@@ -45,8 +45,10 @@ Dry Run intentionally modifies temporary copies only. A successful Dry Run must 
 - Keep edits near existing ownership boundaries: `InjectorV3+Inject.swift`, `InjectorV3+Command.swift`, `InjectorV3+MachO.swift`, `InjectorV3+Backup.swift`, and the relevant SwiftUI view.
 - Preserve entitlements, transactional backup, validation, report sharing, and rollback behavior.
 - Add focused diagnostics for unknown failures; include executable path, command, backend, exit reason, stdout, and stderr without secrets.
+- For constructor or Objective-C `+load` crashes caused by injecting into an early framework, use the optional pre-main deferred loader rather than weakening validation. Preserve direct loading as the default baseline.
 - Keep all user-facing Chinese strings in localization files.
 - Update `devkit/bump-version.sh` if a branding or identifier change must survive future version bumps.
+- When reusable maintenance knowledge changes, update this repo-local Skill and the maintenance manual, push both with the code, then sync the installed Skill from this directory.
 
 ## Validate And Release
 
@@ -56,9 +58,10 @@ Follow [references/release.md](references/release.md). At minimum:
 2. Build through `.github/workflows/compile.yml` on GitHub Actions.
 3. Download and validate the TIPA and DEB rather than trusting a green workflow alone.
 4. Verify plist identity, ZIP readability and permissions, Mach-O slice count, and `ct_bypass` size/architecture.
-5. Copy final artifacts to the output directory requested in the current task.
-6. Commit and push only intended files.
-7. Report `STATICALLY VERIFIED`, `DEVICE VERIFIED`, or `NOT VERIFIED` accurately.
+5. When the deferred loader is present, verify arm64+arm64e slices, `@rpath/TrollFoolsLoader.dylib`, and the `__interpose` section.
+6. Copy final artifacts to the output directory requested in the current task.
+7. Commit and push only intended files.
+8. Report `STATICALLY VERIFIED`, `DEVICE VERIFIED`, or `NOT VERIFIED` accurately.
 
 ## References
 

@@ -15,6 +15,7 @@ struct SettingsView: View {
         _useWeakReference = AppStorage(wrappedValue: true, "UseWeakReference-\(app.bid)")
         _preferMainExecutable = AppStorage(wrappedValue: false, "PreferMainExecutable-\(app.bid)")
         _useFrameworkEnumerationFallback = AppStorage(wrappedValue: true, "UseFrameworkEnumerationFallback-\(app.bid)")
+        _deferPlugInLoading = AppStorage(wrappedValue: false, "DeferPlugInLoading-\(app.bid)")
         _injectStrategy = AppStorage(wrappedValue: .lexicographic, "InjectStrategy-\(app.bid)")
         _dryRun = AppStorage(wrappedValue: false, "DryRun-\(app.bid)")
     }
@@ -22,6 +23,7 @@ struct SettingsView: View {
     @AppStorage var useWeakReference: Bool
     @AppStorage var preferMainExecutable: Bool
     @AppStorage var useFrameworkEnumerationFallback: Bool
+    @AppStorage var deferPlugInLoading: Bool
     @AppStorage var injectStrategy: InjectorV3.Strategy
     @AppStorage var dryRun: Bool
 
@@ -60,6 +62,12 @@ struct SettingsView: View {
                     Text(NSLocalizedString("Injection Strategy", comment: ""))
                 } footer: {
                     paddedHeaderFooterText(NSLocalizedString("Choose how TrollFools tries possible targets. If the plug-in does not work as expected, try another option.", comment: ""))
+                }
+
+                Section {
+                    Toggle(NSLocalizedString("Pre-main Compatibility Loading", comment: ""), isOn: $deferPlugInLoading)
+                } footer: {
+                    paddedHeaderFooterText(NSLocalizedString("Loads plug-ins after app frameworks initialize but before app launch. Enable this when injection succeeds but the target app crashes immediately.", comment: ""))
                 }
 
                 Section {

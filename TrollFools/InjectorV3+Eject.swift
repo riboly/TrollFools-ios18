@@ -73,11 +73,38 @@ extension InjectorV3 {
 
         DDLogInfo("Modified Mach-Os \(targetURLs.map { $0.path })", ddlog: logger)
 
+        var deferredManifest = try readDeferredLoaderManifest()
+        var directAssetURLs = [URL]()
+        var removedDeferredAsset = false
         for assetURL in assetURLs {
+            let deferredPath = try deferredLoadPath(of: assetURL)
+            if let index = deferredManifest.plugIns.firstIndex(of: deferredPath) {
+                deferredManifest.plugIns.remove(at: index)
+                removedDeferredAsset = true
+            } else {
+                directAssetURLs.append(assetURL)
+            }
+        }
+
+        for assetURL in directAssetURLs {
             try targetURLs.forEach {
                 try removeLoadCommandOfAsset(assetURL, from: $0)
             }
+        }
+        for assetURL in assetURLs {
             try? cmdRemove(assetURL, recursively: checkIsDirectory(assetURL))
+        }
+
+        if removedDeferredAsset {
+            if deferredManifest.plugIns.isEmpty {
+                try targetURLs.forEach {
+                    try removeLoadCommandOfAsset(deferredLoaderDestinationURL, from: $0)
+                }
+                try? cmdRemove(deferredLoaderDestinationURL)
+                try? cmdRemove(deferredLoaderManifestURL)
+            } else {
+                try installDeferredLoaderManifest(deferredManifest)
+            }
         }
 
         try targetURLs.forEach {

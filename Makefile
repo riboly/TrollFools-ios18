@@ -12,6 +12,7 @@ TrollFools_XCODE_SCHEME = TrollFools
 include $(THEOS_MAKE_PATH)/xcodeproj.mk
 
 SUBPROJECTS += TrollFoolsTweak
+SUBPROJECTS += TrollFoolsLoader
 
 include $(THEOS_MAKE_PATH)/aggregate.mk
 
@@ -19,6 +20,9 @@ before-all::
 	devkit/standardize-entitlements.sh
 
 before-package::
+	$(ECHO_NOTHING)test -f $(THEOS_STAGING_DIR)/usr/local/lib/TrollFoolsLoader.dylib$(ECHO_END)
+	$(ECHO_NOTHING)cp -p $(THEOS_STAGING_DIR)/usr/local/lib/TrollFoolsLoader.dylib $(THEOS_STAGING_DIR)/Applications/TrollFools.app/TrollFoolsLoader.dylib$(ECHO_END)
+	$(ECHO_NOTHING)rm -f $(THEOS_STAGING_DIR)/usr/local/lib/TrollFoolsLoader.dylib$(ECHO_END)
 	$(ECHO_NOTHING)ldid -STrollFools/TrollFools.entitlements $(THEOS_STAGING_DIR)/Applications/TrollFools.app$(ECHO_END)
 	$(ECHO_NOTHING)ldid -STrollFools/TrollFools.entitlements $(THEOS_STAGING_DIR)/usr/local/bin/trollfoolscli$(ECHO_END)
 

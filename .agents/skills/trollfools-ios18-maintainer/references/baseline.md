@@ -30,6 +30,8 @@ Compatibility priority: this device first, other arm64e iOS 18 devices second, a
 - `4.3-254`: bad package regression. The generated helper became an approximately 8.44 MB fat arm64+arm64e binary and TrollStore Lite did not react to TIPA import. Do not restore CI code that rebuilds ChOma `ct_bypass` during every workflow.
 - `4.3-258`: **DEVICE VERIFIED**. The user confirmed successful injection of the existing `GSPlayerInfo.dylib` on the primary device.
 - `4.3-259`: branding and UI release. **STATICALLY VERIFIED** at creation time; injection logic is inherited from the 258 baseline.
+- `4.3-260`: **DEVICE VERIFIED for the reported WeChat and Telegram plug-ins** on the primary device. The strict-permission and idempotent-validation fixes resolved their injection failures. This does not imply that every plug-in is device-verified.
+- `4.3-261`: pre-main compatibility loader for plug-ins that crash during early framework initialization. **STATICALLY VERIFIED** until the user tests DYYY on the primary device.
 
 Build 259 artifact source commit: `b604d276408d7ccb2ecaab946d1bf7bde8f576d4`.
 
@@ -43,6 +45,13 @@ Build 259 artifact source commit: `b604d276408d7ccb2ecaab946d1bf7bde8f576d4`.
 - `cf09c6c`: rootless ldid candidate fallback and real Dry Run signing simulation.
 - `9bc39e0`: ldid diagnostic logging import fix.
 - `b604d27`: TrollFools.L branding, bundle identifier, icon, advertising removal, Dry Run UI, and injection strategy descriptions.
+- `990a3e0`: strict imported plug-in permissions and idempotent load-command validation; later device-verified for the reported WeChat and Telegram plug-ins.
+
+## Pre-main Compatibility Loading
+
+Direct loading remains the default and preserves the device-verified injection path. For a plug-in that injects and signs successfully but crashes during a constructor or Objective-C `+load`, the per-app **Pre-main Compatibility Loading** option makes the selected target load only `@rpath/TrollFoolsLoader.dylib`. The loader reads `Frameworks/TrollFoolsLoader.plist` and `dlopen`s the listed plug-ins immediately before `UIApplicationMain`, after load-time framework initializers have completed.
+
+The mode must remain opt-in. Injection, Dry Run, validation, disable/enable, eject, backup, rollback, and direct/deferred conversion must keep the loader and manifest transactional. A device crash log is still authoritative if a plug-in continues to fail.
 
 ## Injection Pipeline Map
 

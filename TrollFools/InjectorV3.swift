@@ -40,6 +40,7 @@ final class InjectorV3 {
     var useWeakReference: Bool = false
     var preferMainExecutable: Bool = false
     var useFrameworkEnumerationFallback: Bool = true
+    var deferPlugInLoading: Bool = false
     var injectStrategy: Strategy = .lexicographic
     var didUseMachOEnumerationFallback: Bool = false
     var lastReport: InjectionReport?

@@ -1,5 +1,43 @@
 # Changelog
 
+## 4.3 Build 261 (2026-08-17)
+
+修复部分插件注入和签名均成功、但因目标 framework 初始化顺序过早而导致 App 启动闪退的问题。
+
+### 新增
+
+- 启动前兼容加载：新增按 App 独立保存的可选模式。目标 Mach-O 只加载 `TrollFoolsLoader.dylib`，Loader 在 load-time framework 初始化完成后、`UIApplicationMain` 前按清单加载插件。
+- CLI：`inject` 命令新增 `--deferred` 参数。
+- 注入报告：新增 `Loading Mode`，区分 `Direct` 与 `Pre-main deferred`。
+
+### 修复与优化
+
+- 模式转换：重新注入时可在直载和延迟加载之间安全转换，并清理旧插件 load command。
+- 插件管理：停用、启用、卸载及全部移除均同步维护 Loader 清单；最后一个延迟插件移除后清理 Loader。
+- 事务保障：Loader 与清单纳入 Dry Run、签名验证、备份和回滚。
+- 发布验证：GitHub Actions 校验 Loader 的 arm64/arm64e slices、install name、`__interpose` section 及 DEB 独立库残留。
+
+------
+
+## 4.3 Build 261 (2026-08-17) [EN]
+
+Fixed launch crashes caused by some successfully injected and signed plug-ins initializing before the target app's frameworks were ready.
+
+### Added
+
+- Pre-main compatibility loading: Added an opt-in per-app mode. The target Mach-O loads only `TrollFoolsLoader.dylib`, which loads manifest plug-ins after load-time framework initialization and before `UIApplicationMain`.
+- CLI: Added `--deferred` to the `inject` command.
+- Injection report: Added `Loading Mode` to distinguish `Direct` and `Pre-main deferred`.
+
+### Fixed and improved
+
+- Mode conversion: Re-injection can safely move a plug-in between direct and deferred loading while removing stale load commands.
+- Plug-in management: Disable, enable, eject, and remove-all flows keep the loader manifest synchronized and remove the loader after the final deferred plug-in.
+- Transaction safety: Included the loader and manifest in Dry Run, signing validation, backup, and rollback.
+- Release validation: GitHub Actions checks loader arm64/arm64e slices, install name, `__interpose` section, and standalone DEB library residue.
+
+------
+
 ## 4.3 Build 260 (2026-08-17)
 
 修复部分插件因源文件权限过严，在完成复制和签名后无法由 TrollFools 验证、导致注入事务回滚的问题。

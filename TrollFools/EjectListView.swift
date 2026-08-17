@@ -29,6 +29,7 @@ struct EjectListView: View {
     @AppStorage var useWeakReference: Bool
     @AppStorage var preferMainExecutable: Bool
     @AppStorage var useFrameworkEnumerationFallback: Bool
+    @AppStorage var deferPlugInLoading: Bool
     @AppStorage var injectStrategy: InjectorV3.Strategy
 
     var shouldShowActions: Bool {
@@ -44,6 +45,7 @@ struct EjectListView: View {
         _useWeakReference = AppStorage(wrappedValue: true, "UseWeakReference-\(app.bid)")
         _preferMainExecutable = AppStorage(wrappedValue: false, "PreferMainExecutable-\(app.bid)")
         _useFrameworkEnumerationFallback = AppStorage(wrappedValue: true, "UseFrameworkEnumerationFallback-\(app.bid)")
+        _deferPlugInLoading = AppStorage(wrappedValue: false, "DeferPlugInLoading-\(app.bid)")
         _injectStrategy = AppStorage(wrappedValue: .lexicographic, "InjectStrategy-\(app.bid)")
     }
 
@@ -356,6 +358,7 @@ struct EjectListView: View {
             injector.useWeakReference = useWeakReference
             injector.preferMainExecutable = preferMainExecutable
             injector.useFrameworkEnumerationFallback = useFrameworkEnumerationFallback
+            injector.deferPlugInLoading = deferPlugInLoading
             injector.injectStrategy = injectStrategy
 
             if !enabledURLsToRemove.isEmpty {
@@ -406,6 +409,7 @@ struct EjectListView: View {
             injector.useWeakReference = useWeakReference
             injector.preferMainExecutable = preferMainExecutable
             injector.useFrameworkEnumerationFallback = useFrameworkEnumerationFallback
+            injector.deferPlugInLoading = deferPlugInLoading
             injector.injectStrategy = injectStrategy
 
             if plugIn.isEnabled {
@@ -456,6 +460,7 @@ struct EjectListView: View {
             injector.useWeakReference = useWeakReference
             injector.preferMainExecutable = preferMainExecutable
             injector.useFrameworkEnumerationFallback = useFrameworkEnumerationFallback
+            injector.deferPlugInLoading = deferPlugInLoading
             injector.injectStrategy = injectStrategy
 
             let view = viewControllerHost.viewController?
@@ -530,6 +535,7 @@ struct EjectListView: View {
             injector.useWeakReference = useWeakReference
             injector.preferMainExecutable = preferMainExecutable
             injector.useFrameworkEnumerationFallback = useFrameworkEnumerationFallback
+            injector.deferPlugInLoading = deferPlugInLoading
             injector.injectStrategy = injectStrategy
 
             let view = viewControllerHost.viewController?

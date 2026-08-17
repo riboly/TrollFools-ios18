@@ -24,4 +24,5 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - Validate TIPA ZIP integrity, plist identity, executable permissions, Mach-O slices, signatures, and `ct_bypass` size/architecture after every build.
 - Use the LAN proxy documented in the maintenance manual for network operations.
 - Push intended changes to `origin` and copy final artifacts to the output directory requested in the current task. Never assume a fixed local checkout or artifact path.
+- When a code change adds reusable maintenance or diagnostic knowledge, update the maintenance manual and repo-local Skill in the same delivery, push those files to GitHub, and sync the installed Skill from the repo-local source before final verification.
 - Report only `STATICALLY VERIFIED`, `DEVICE VERIFIED`, or `NOT VERIFIED` according to actual evidence.

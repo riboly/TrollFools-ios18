@@ -312,6 +312,8 @@
 
 /* Injection diagnostics */
 "Dry Run" = "注入调试(Dry Run)";
+"Pre-main Compatibility Loading" = "启动前兼容加载";
+"Loads plug-ins after app frameworks initialize but before app launch. Enable this when injection succeeds but the target app crashes immediately." = "在 App 框架初始化完成后、正式启动前加载插件。注入成功但目标 App 打开即闪退时启用。";
 "Analyze compatibility and create an injection report without modifying the app." = "仅分析注入兼容性并生成报告，不会修改 App。注入调试完成后，插件列表保持为空是正常现象。";
 "Injection Report" = "注入报告";
 "View Report" = "查看报告";

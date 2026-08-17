@@ -62,6 +62,18 @@ jobs:
           cp packages/*.tipa packages/*.deb .
           find .theos/obj -name "*.dSYM" -exec cp -r {} . \;
 
+      - name: Validate Deferred Loader
+        run: |
+          VALIDATION_DIR=$(mktemp -d)
+          unzip -q TrollFools_*.tipa -d "$VALIDATION_DIR"
+          LOADER="$VALIDATION_DIR/Payload/TrollFools.app/TrollFoolsLoader.dylib"
+          test -x "$LOADER"
+          lipo -verify_arch arm64 arm64e "$LOADER"
+          otool -D "$LOADER" | grep -q '@rpath/TrollFoolsLoader.dylib'
+          otool -l "$LOADER" | grep -q '__interpose'
+          ! dpkg-deb --contents wiki.qaq.trollfools.l_*.deb \
+            | grep -Eq '[.]/(var/jb/)?usr/local/lib/TrollFoolsLoader[.]dylib$'
+
       - name: Upload Packages
         uses: actions/upload-artifact@v4
         with:

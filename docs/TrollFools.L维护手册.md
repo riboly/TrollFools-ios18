@@ -46,6 +46,7 @@
 - TXT/JSON injection report 及查看/分享入口
 - `注入调试(Dry Run)`：只在临时副本执行修改和签名模拟，不改变已安装 App，所以下一次启动恢复关闭且插件列表保持为空
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
+- 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
 
 ## 5. 关键代码位置
 
@@ -93,6 +94,7 @@ Dry Run 显示 `SAFE TO INJECT` 且插件列表为空属于正确行为；它不
 7. 中文 UI 文案写入本地化文件，长说明必须允许换行。
 8. 修改前检查 Git dirty state，不覆盖用户未提交改动。
 9. 真实设备未测试时只标记 `STATICALLY VERIFIED`，不得宣称支持已经真机验证。
+10. 代码修改产生了可复用的维护、诊断或发布经验时，必须同步更新本手册和 repo-local Skill，并随代码一起 push 到 GitHub；repo-local Skill 是用户级已安装 Skill 的同步源。
 
 ## 8. 构建和发布
 
@@ -113,8 +115,9 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 5. 下载 TIPA/DEB/dSYM。
 6. 解析 TIPA 内 Info.plist，核对名称、Bundle ID、版本、ZIP 完整性和 `0755` 权限。
 7. 解析主程序及 `ct_bypass` Mach-O 架构、slice 数和签名区，检查 helper 是否异常膨胀。
-8. 计算 SHA-256，并复制到当前任务指定的输出目录；不要假设固定桌面路径。
-9. 输出 GitHub Actions 链接、提交哈希、文件路径、SHA-256 和验证级别。
+8. 核对 `TrollFoolsLoader.dylib` 为 arm64+arm64e、install name 为 `@rpath/TrollFoolsLoader.dylib`，并包含 `__DATA,__interpose`；确认它只存在于 App 资源内，不残留为独立 rootless 库。
+9. 计算 SHA-256，并复制到当前任务指定的输出目录；不要假设固定桌面路径。
+10. 输出 GitHub Actions 链接、提交哈希、文件路径、SHA-256 和验证级别。
 
 ## 9. 新会话直接用法
 

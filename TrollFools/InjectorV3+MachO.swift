@@ -81,6 +81,7 @@ extension InjectorV3 {
         var executablePath: String
         var systemVersion: String
         var signingBackend: String
+        var loadingMode: String
         var mainExecutable: MachOMetadata?
         var targetMachO: MachOMetadata?
         var injectedAssets: [MachOMetadata]
@@ -105,6 +106,7 @@ extension InjectorV3 {
                 "Executable Path: \(executablePath)",
                 "iOS: \(systemVersion)",
                 "Signing Backend: \(signingBackend)",
+                "Loading Mode: \(loadingMode)",
             ]
             if let targetMachO {
                 lines.append("Target Mach-O: \(targetMachO.path)")

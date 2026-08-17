@@ -29,6 +29,9 @@ struct CmdInject: ParsableCommand {
     @Flag(name: [.customLong("dry-run")], help: "Analyze compatibility without modifying the application.")
     var dryRun: Bool = false
 
+    @Flag(name: [.customLong("deferred")], help: "Load plug-ins after framework initialization and before UIApplicationMain.")
+    var deferredLoading: Bool = false
+
     func run() throws {
         guard let app = LSApplicationProxy(forIdentifier: bundleIdentifier),
               let appID = app.applicationIdentifier(),
@@ -54,6 +57,7 @@ struct CmdInject: ParsableCommand {
             }
         }
         injector.useWeakReference = weakReference
+        injector.deferPlugInLoading = deferredLoading
         injector.injectStrategy = fastInjection ? .fast : .lexicographic
         if dryRun {
             let report = try injector.dryRun(pluginURLs)

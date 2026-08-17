@@ -9,6 +9,16 @@ import CocoaLumberjackSwift
 import Foundation
 
 extension InjectorV3 {
+    struct DeferredLoaderManifest: Codable {
+        var version = 1
+        var plugIns = [String]()
+
+        enum CodingKeys: String, CodingKey {
+            case version = "Version"
+            case plugIns = "Plugins"
+        }
+    }
+
     enum Strategy: String, CaseIterable {
         case lexicographic
         case fast
@@ -61,6 +71,8 @@ extension InjectorV3 {
         destinationURLs += dylibsAndFrameworks.map { frameworksDirectoryURL.appendingPathComponent($0.lastPathComponent) }
         if !dylibsAndFrameworks.isEmpty {
             destinationURLs.append(frameworksDirectoryURL.appendingPathComponent(Self.substrateFwkName))
+            destinationURLs.append(deferredLoaderDestinationURL)
+            destinationURLs.append(deferredLoaderManifestURL)
         }
         if let targetMachO {
             destinationURLs.append(Self.alternateURL(for: targetMachO))
@@ -150,6 +162,9 @@ extension InjectorV3 {
         }
 
         let substrateFwkURL = try prepareSubstrate()
+        let deferredSupportURLs = deferPlugInLoading
+            ? try prepareDeferredLoaderSupport(for: assetURLs)
+            : []
         let targetMachO = selectedTargetMachO
         if targetMachO.path.isEmpty {
             DDLogError("All Mach-Os are protected", ddlog: logger)
@@ -159,12 +174,23 @@ extension InjectorV3 {
 
         DDLogInfo("Best matched Mach-O is \(targetMachO.path)", ddlog: logger)
 
-        let resourceURLs: [URL] = [substrateFwkURL] + assetURLs
+        let resourceURLs: [URL] = [substrateFwkURL] + assetURLs + deferredSupportURLs
         try makeAlternate(targetMachO)
         do {
             try copyfiles(resourceURLs)
-            for assetURL in assetURLs {
-                try insertLoadCommandOfAsset(assetURL, to: targetMachO)
+            if deferPlugInLoading {
+                guard let loaderURL = deferredSupportURLs.first(where: { $0.lastPathComponent == Self.deferredLoaderFileName }) else {
+                    throw Error.generic("Deferred loader staging did not produce \(Self.deferredLoaderFileName).")
+                }
+                for assetURL in assetURLs {
+                    try removeLoadCommandIfPresent(for: assetURL, from: targetMachO)
+                }
+                try insertLoadCommandOfAsset(loaderURL, to: targetMachO)
+            } else {
+                try transitionAssetsToDirectLoading(assetURLs, targetMachO: targetMachO)
+                for assetURL in assetURLs {
+                    try insertLoadCommandOfAsset(assetURL, to: targetMachO)
+                }
             }
             try applyCompatibleSignature(targetMachO)
         } catch {
@@ -206,6 +232,99 @@ extension InjectorV3 {
         try cmdChangeOwnerToInstalld(fwkURL, recursively: true)
 
         return fwkURL
+    }
+
+    var deferredLoaderDestinationURL: URL {
+        frameworksDirectoryURL.appendingPathComponent(Self.deferredLoaderFileName)
+    }
+
+    var deferredLoaderManifestURL: URL {
+        frameworksDirectoryURL.appendingPathComponent(Self.deferredLoaderManifestName)
+    }
+
+    func deferredLoadPath(of assetURL: URL) throws -> String {
+        if checkIsBundle(assetURL) {
+            let executable = try locateExecutableInBundle(assetURL)
+            return "\(assetURL.lastPathComponent)/\(executable.lastPathComponent)"
+        }
+        let parentURL = assetURL.deletingLastPathComponent()
+        if parentURL.pathExtension.lowercased() == "framework" {
+            return "\(parentURL.lastPathComponent)/\(assetURL.lastPathComponent)"
+        }
+        return assetURL.lastPathComponent
+    }
+
+    func readDeferredLoaderManifest() throws -> DeferredLoaderManifest {
+        guard FileManager.default.fileExists(atPath: deferredLoaderManifestURL.path) else {
+            return DeferredLoaderManifest()
+        }
+        let data = try Data(contentsOf: deferredLoaderManifestURL)
+        return try PropertyListDecoder().decode(DeferredLoaderManifest.self, from: data)
+    }
+
+    func installDeferredLoaderManifest(_ manifest: DeferredLoaderManifest) throws {
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        let stagingURL = temporaryDirectoryURL
+            .appendingPathComponent("\(UUID().uuidString)-\(Self.deferredLoaderManifestName)")
+        try encoder.encode(manifest).write(to: stagingURL, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: stagingURL) }
+        try cmdCopy(from: stagingURL, to: deferredLoaderManifestURL, clone: true, overwrite: true)
+        try cmdChangeOwnerToInstalld(deferredLoaderManifestURL)
+    }
+
+    fileprivate func prepareDeferredLoaderSupport(for assetURLs: [URL]) throws -> [URL] {
+        let sourceURL = try deferredLoaderResourceURL()
+        let loaderURL = temporaryDirectoryURL.appendingPathComponent(Self.deferredLoaderFileName)
+        if FileManager.default.fileExists(atPath: loaderURL.path) {
+            try FileManager.default.removeItem(at: loaderURL)
+        }
+        try FileManager.default.copyItem(at: sourceURL, to: loaderURL)
+        try applyCompatibleSignature(loaderURL)
+
+        var manifest = try readDeferredLoaderManifest()
+        manifest.version = 1
+        let newPaths = try assetURLs.map { try deferredLoadPath(of: $0) }
+        for path in newPaths where !manifest.plugIns.contains(path) {
+            manifest.plugIns.append(path)
+        }
+        manifest.plugIns.sort { $0.localizedStandardCompare($1) == .orderedAscending }
+
+        let manifestURL = temporaryDirectoryURL.appendingPathComponent(Self.deferredLoaderManifestName)
+        let encoder = PropertyListEncoder()
+        encoder.outputFormat = .xml
+        try encoder.encode(manifest).write(to: manifestURL, options: .atomic)
+        return [loaderURL, manifestURL]
+    }
+
+    fileprivate func deferredLoaderResourceURL() throws -> URL {
+        guard let url = Self.findResourceIfAvailable(Self.deferredLoaderName, fileExtension: "dylib") else {
+            throw Error.generic("Missing bundled resource: \(Self.deferredLoaderFileName)")
+        }
+        return url
+    }
+
+    fileprivate func transitionAssetsToDirectLoading(_ assetURLs: [URL], targetMachO: URL) throws {
+        var manifest = try readDeferredLoaderManifest()
+        let paths = Set(try assetURLs.map { try deferredLoadPath(of: $0) })
+        let originalCount = manifest.plugIns.count
+        manifest.plugIns.removeAll(where: paths.contains)
+        guard manifest.plugIns.count != originalCount else { return }
+
+        if manifest.plugIns.isEmpty {
+            try removeLoadCommandIfPresent(for: deferredLoaderDestinationURL, from: targetMachO)
+            try? cmdRemove(deferredLoaderDestinationURL)
+            try? cmdRemove(deferredLoaderManifestURL)
+        } else {
+            try installDeferredLoaderManifest(manifest)
+        }
+    }
+
+    fileprivate func removeLoadCommandIfPresent(for assetURL: URL, from targetMachO: URL) throws {
+        let name = try loadCommandNameOfAsset(assetURL)
+        if try loadedDylibsOfMachO(targetMachO).contains(name) {
+            try cmdRemoveLoadCommandDylib(targetMachO, name: name)
+        }
     }
 
     fileprivate func standardizeLoadCommandDylibToSubstrate(_ assetURL: URL) throws {
@@ -291,6 +410,7 @@ extension InjectorV3 {
             $0.pathExtension.lowercased() == "dylib" || $0.pathExtension.lowercased() == "framework"
         }
         var inspectedAssets = [MachOMetadata]()
+        var deferredLoaderMetadata: MachOMetadata?
         var requestedLoadCommands = [String]()
         var warnings = [String]()
         var errors = [String]()
@@ -308,6 +428,21 @@ extension InjectorV3 {
             }
         }
 
+        if deferPlugInLoading, !injectableAssets.isEmpty {
+            do {
+                let loaderURL = try deferredLoaderResourceURL()
+                let metadata = try inspectMachO(loaderURL)
+                deferredLoaderMetadata = metadata
+                requestedLoadCommands = [try loadCommandNameOfAsset(loaderURL)]
+                validateAssetDependencies(metadata, availableAssets: assetURLs, warnings: &warnings, errors: &errors)
+                validateMinimumOS(metadata, errors: &errors)
+                let paths = try injectableAssets.map { try deferredLoadPath(of: $0) }
+                warnings.append("Pre-main compatibility loading enabled for: \(paths.joined(separator: ", ")).")
+            } catch {
+                errors.append("Cannot prepare deferred loader: \(error.localizedDescription)")
+            }
+        }
+
         var targetMetadata: MachOMetadata?
         if !injectableAssets.isEmpty {
             if let targetURL = try locateAvailableMachO() {
@@ -322,7 +457,8 @@ extension InjectorV3 {
         }
 
         if let targetMetadata {
-            for asset in inspectedAssets where !architecturesAreCompatible(targetMetadata, asset) {
+            let compatibilityAssets = inspectedAssets + [deferredLoaderMetadata].compactMap { $0 }
+            for asset in compatibilityAssets where !architecturesAreCompatible(targetMetadata, asset) {
                 errors.append("Architecture mismatch: \(URL(fileURLWithPath: asset.path).lastPathComponent) [\(asset.architectures.joined(separator: ", "))] cannot load into [\(targetMetadata.architectures.joined(separator: ", "))].")
             }
             validateHeaderPadding(targetMetadata, loadCommands: requestedLoadCommands, errors: &errors)
@@ -353,6 +489,7 @@ extension InjectorV3 {
             executablePath: executableURL.path,
             systemVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             signingBackend: signingBackend.rawValue,
+            loadingMode: deferPlugInLoading ? "Pre-main deferred" : "Direct",
             mainExecutable: executableMetadata,
             targetMachO: targetMetadata,
             injectedAssets: inspectedAssets,
@@ -393,11 +530,38 @@ extension InjectorV3 {
             report.warnings.append("Signing simulation passed for \(assetURL.lastPathComponent).")
         }
 
+        var loadCommandAssets = injectableAssets
+        if deferPlugInLoading, !injectableAssets.isEmpty {
+            let sourceURL = try deferredLoaderResourceURL()
+            let loaderCopyURL = simulationURL.appendingPathComponent(Self.deferredLoaderFileName)
+            try FileManager.default.copyItem(at: sourceURL, to: loaderCopyURL)
+            try cmdPseudoSign(loaderCopyURL, force: true)
+            let loaderMetadata = try inspectMachO(loaderCopyURL)
+            guard loaderMetadata.codeSignaturesValid else {
+                throw Error.generic("Dry Run produced an invalid CodeDirectory for \(Self.deferredLoaderFileName).")
+            }
+            loadCommandAssets = [loaderCopyURL]
+            report.warnings.append("Signing simulation passed for \(Self.deferredLoaderFileName).")
+        }
+
         guard let targetMetadata = report.targetMachO else { return }
         let sourceTargetURL = URL(fileURLWithPath: targetMetadata.path)
         let targetCopyURL = simulationURL.appendingPathComponent("Target-\(sourceTargetURL.lastPathComponent)")
         try FileManager.default.copyItem(at: sourceTargetURL, to: targetCopyURL)
-        for assetURL in injectableAssets {
+        if deferPlugInLoading {
+            for assetURL in injectableAssets {
+                try removeLoadCommandIfPresent(for: assetURL, from: targetCopyURL)
+            }
+        } else {
+            var manifest = try readDeferredLoaderManifest()
+            let directPaths = Set(try injectableAssets.map { try deferredLoadPath(of: $0) })
+            let hadDeferredAsset = manifest.plugIns.contains(where: directPaths.contains)
+            manifest.plugIns.removeAll(where: directPaths.contains)
+            if hadDeferredAsset, manifest.plugIns.isEmpty {
+                try removeLoadCommandIfPresent(for: deferredLoaderDestinationURL, from: targetCopyURL)
+            }
+        }
+        for assetURL in loadCommandAssets {
             try insertLoadCommandOfAsset(assetURL, to: targetCopyURL)
         }
         try cmdPseudoSign(targetCopyURL, force: true)
@@ -490,6 +654,28 @@ extension InjectorV3 {
             }
             if !finalAsset.codeSignaturesValid {
                 report.errors.append("Final injected asset signature is invalid: \(copiedURL.lastPathComponent).")
+            }
+        }
+
+        if deferPlugInLoading {
+            let finalLoader = try inspectMachO(deferredLoaderDestinationURL)
+            if !architecturesAreCompatible(final, finalLoader) {
+                report.errors.append("Final deferred loader architecture is incompatible with the target Mach-O.")
+            }
+            if !finalLoader.codeSignaturesValid {
+                report.errors.append("Final deferred loader signature is invalid.")
+            }
+
+            let manifest = try readDeferredLoaderManifest()
+            for asset in report.injectedAssets {
+                let path = try deferredLoadPath(of: URL(fileURLWithPath: asset.path))
+                if !manifest.plugIns.contains(path) {
+                    report.errors.append("Deferred loader manifest is missing \(path).")
+                }
+                let directCommand = "@rpath/\(path)"
+                if final.slices.contains(where: { $0.dependencies.contains(directCommand) }) {
+                    report.errors.append("Deferred asset still has an early load command: \(directCommand).")
+                }
             }
         }
 
@@ -672,7 +858,7 @@ extension InjectorV3 {
         return selectedMachO
     }
 
-    fileprivate static func findResource(_ name: String, fileExtension: String) -> URL {
+    static func findResourceIfAvailable(_ name: String, fileExtension: String) -> URL? {
         if let url = Bundle.main.url(forResource: name, withExtension: fileExtension) {
             return url
         }
@@ -695,6 +881,13 @@ extension InjectorV3 {
                 return execURL
             }
         }
-        fatalError("Unable to locate resource \(name)")
+        return nil
+    }
+
+    fileprivate static func findResource(_ name: String, fileExtension: String) -> URL {
+        guard let url = findResourceIfAvailable(name, fileExtension: fileExtension) else {
+            fatalError("Unable to locate resource \(name)")
+        }
+        return url
     }
 }
