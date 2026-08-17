@@ -124,7 +124,7 @@ extension InjectorV3 {
                     }
                 }
             }
-            lines.append(contentsOf: requestedLoadCommands.map { "LC_LOAD_DYLIB added: \($0)" })
+            lines.append(contentsOf: requestedLoadCommands.map { "LC_LOAD_DYLIB requested: \($0)" })
             lines.append(contentsOf: warnings.map { "WARNING: \($0)" })
             lines.append(contentsOf: errors.map { "ERROR: \($0)" })
             if let backupPath { lines.append("Backup: \(backupPath)") }

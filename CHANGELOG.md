@@ -1,5 +1,31 @@
 # Changelog
 
+## 4.3 Build 260 (2026-08-17)
+
+修复部分插件因源文件权限过严，在完成复制和签名后无法由 TrollFools 验证、导致注入事务回滚的问题。
+
+### 修复
+
+- 插件权限：导入后、改属主前补齐 Mach-O 的读取/执行权限及包目录的遍历权限，兼容 `0600` 等严格权限的 dylib/framework。
+- 幂等注入：仅在本次确实新增或规范化 load command/rpath 时要求 CDHash 变化；已有相同命令时仍完整验证 CodeDirectory、架构和依赖，不再误判签名失败。
+- 注入报告：去重事务错误，并将 load command 状态从“已添加”改为“已请求”，避免重复或误导信息。
+- 版本工具：build number 改为基于当前版本顺序递增，避免文档提交导致版本号跳跃。
+
+------
+
+## 4.3 Build 260 (2026-08-17) [EN]
+
+Fixed injection rollback when strict source permissions prevented TrollFools from validating a plug-in after copying and signing it.
+
+### Fixed
+
+- Plug-in permissions: Ensure imported Mach-Os are readable/executable and bundle directories are traversable before ownership changes, including dylibs/frameworks imported with modes such as `0600`.
+- Idempotent injection: Require a changed CDHash only when this run adds or normalizes a load command/rpath; existing commands still receive full CodeDirectory, architecture, and dependency validation.
+- Injection reports: De-duplicate transaction errors and report load commands as requested instead of always claiming they were added.
+- Version tooling: Increment the current build number sequentially instead of deriving it from the repository commit count.
+
+------
+
 ## 4.3 Build 253 (2026-04-23)
 
 修复与 MachOKit 有关的一处断言崩溃。

@@ -95,13 +95,13 @@ extension InjectorV3 {
             report.status = .injectionSuccessful
             try writeInjectionReport(&report, backupURL: transaction.rootURL)
         } catch {
-            report.errors.append(error.localizedDescription)
+            appendUniqueReportErrors(error.localizedDescription, to: &report.errors)
             do {
                 try rollbackInjectionTransaction(transaction)
                 report.status = .rolledBack
             } catch {
                 report.status = .injectionFailed
-                report.errors.append("Rollback failed: \(error.localizedDescription)")
+                appendUniqueReportErrors("Rollback failed: \(error.localizedDescription)", to: &report.errors)
             }
             try? writeInjectionReport(&report, backupURL: transaction.rootURL)
             throw Error.generic(report.errors.joined(separator: "\n"))
@@ -448,8 +448,30 @@ extension InjectorV3 {
             if originalSlice.hasExportsTrie != finalSlice.hasExportsTrie {
                 report.errors.append("LC_DYLD_EXPORTS_TRIE changed for \(originalSlice.architecture).")
             }
-            if originalSlice.cdHash == finalSlice.cdHash, !report.requestedLoadCommands.isEmpty {
-                report.errors.append("CDHash was not regenerated for \(originalSlice.architecture).")
+            let rpath = "@executable_path/Frameworks"
+            let needsRPathInsertion = !originalSlice.runtimePaths.contains(rpath)
+            let needsDylibCommandChange = report.requestedLoadCommands.contains { command in
+                if !originalSlice.dependencies.contains(command) {
+                    return true
+                }
+                let itemName = String(command.dropFirst("@rpath/".count))
+                return originalSlice.dependencies.contains {
+                    $0 != command && $0.hasSuffix("/" + itemName)
+                }
+            }
+            if needsRPathInsertion || needsDylibCommandChange {
+                guard let originalCDHash = originalSlice.cdHash, let finalCDHash = finalSlice.cdHash else {
+                    report.errors.append("Unable to verify the regenerated CDHash for \(originalSlice.architecture).")
+                    continue
+                }
+                if originalCDHash == finalCDHash {
+                    report.errors.append("CDHash was not regenerated for \(originalSlice.architecture).")
+                }
+            } else {
+                let warning = "Requested load commands were already present for \(originalSlice.architecture); idempotent re-signing was accepted."
+                if !report.warnings.contains(warning) {
+                    report.warnings.append(warning)
+                }
             }
         }
 
@@ -482,9 +504,11 @@ extension InjectorV3 {
     }
 
     fileprivate func validateHeaderPadding(_ target: MachOMetadata, loadCommands: [String], errors: inout [String]) {
-        let dylibBytes = loadCommands.reduce(0) { $0 + alignedLoadCommandSize(base: 24, string: $1) }
         let rpath = "@executable_path/Frameworks"
         for slice in target.slices {
+            let dylibBytes = loadCommands
+                .filter { !slice.dependencies.contains($0) }
+                .reduce(0) { $0 + alignedLoadCommandSize(base: 24, string: $1) }
             let needsRPath = !slice.runtimePaths.contains(rpath)
             let required = UInt64(dylibBytes + (needsRPath ? alignedLoadCommandSize(base: 12, string: rpath) : 0))
             if slice.headerPadding < required {
@@ -572,6 +596,15 @@ extension InjectorV3 {
               let rhsObject = try? PropertyListSerialization.propertyList(from: rhsData, options: [], format: nil) as? NSDictionary
         else { return false }
         return lhsObject.isEqual(rhsObject)
+    }
+
+    fileprivate func appendUniqueReportErrors(_ description: String, to errors: inout [String]) {
+        for component in description.components(separatedBy: .newlines) {
+            let message = component.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !message.isEmpty, !errors.contains(message) {
+                errors.append(message)
+            }
+        }
     }
 
     fileprivate func writeInjectionReport(_ report: inout InjectionReport, backupURL: URL? = nil) throws {

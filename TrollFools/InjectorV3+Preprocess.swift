@@ -79,6 +79,10 @@ extension InjectorV3 {
             }
         }
 
+        for preparedAssetURL in preparedAssetURLs {
+            try normalizeImportedAssetPermissions(preparedAssetURL)
+        }
+
         try markBundlesAsInjected(urlsToMarkAsInjected, privileged: false)
 
         preparedAssetURLs.removeAll(where: { Self.ignoredDylibAndFrameworkNames.contains($0.lastPathComponent.lowercased()) })
@@ -91,6 +95,58 @@ extension InjectorV3 {
 }
 
 fileprivate extension InjectorV3 {
+    func normalizeImportedAssetPermissions(_ assetURL: URL) throws {
+        let fileManager = FileManager.default
+        let lowerExt = assetURL.pathExtension.lowercased()
+        let executableURL: URL?
+        if lowerExt == "framework" {
+            executableURL = try locateExecutableInBundle(assetURL).standardizedFileURL
+        } else if lowerExt == "dylib" {
+            executableURL = assetURL.standardizedFileURL
+        } else {
+            executableURL = nil
+        }
+
+        var itemURLs = [assetURL]
+        if checkIsDirectory(assetURL),
+           let enumerator = fileManager.enumerator(
+               at: assetURL,
+               includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+           )
+        {
+            while let itemURL = enumerator.nextObject() as? URL {
+                itemURLs.append(itemURL)
+            }
+        }
+
+        for itemURL in itemURLs {
+            let values = try itemURL.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+            if values.isSymbolicLink == true {
+                continue
+            }
+
+            let attributes = try fileManager.attributesOfItem(atPath: itemURL.path)
+            let currentMode = (attributes[.posixPermissions] as? NSNumber)?.uint16Value ?? 0
+            var requiredMode: UInt16 = values.isDirectory == true ? 0o555 : 0o444
+            if let executableURL, itemURL.standardizedFileURL == executableURL {
+                requiredMode |= 0o111
+            }
+            let normalizedMode = currentMode | requiredMode
+            guard normalizedMode != currentMode else {
+                continue
+            }
+
+            try fileManager.setAttributes(
+                [.posixPermissions: NSNumber(value: normalizedMode)],
+                ofItemAtPath: itemURL.path
+            )
+            DDLogInfo(
+                "Normalized imported permissions \(itemURL.path): \(String(currentMode, radix: 8)) -> \(String(normalizedMode, radix: 8))",
+                ddlog: logger
+            )
+        }
+    }
+
     func extractDebianPackage(at debURL: URL, to targetURL: URL) throws {
         let fileHandle = try FileHandle(forReadingFrom: debURL)
         defer {

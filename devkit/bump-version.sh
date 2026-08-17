@@ -63,11 +63,10 @@ if [ ! -f $XCCONFIG_NAME ]; then
   exit 1
 fi
 
-# Get the number of commits in the current branch.
-new_build_number=$(git rev-list --count HEAD)
-
-# previous_build_number=$(awk -F "=" '/BUILD_NUMBER/ {print $2}' $XCCONFIG_NAME | tr -d ' ')
-# new_build_number=$((previous_build_number + 1))
+# Keep release builds sequential even when documentation commits or imported
+# history change the repository's total commit count.
+previous_build_number=$(awk -F "=" '/BUILD_NUMBER/ {print $2}' $XCCONFIG_NAME | tr -d ' ')
+new_build_number=$((previous_build_number + 1))
 
 sed -i -e "/VERSION =/ s/= .*/= $VERSION/" $XCCONFIG_NAME
 sed -i -e "/BUILD_NUMBER =/ s/= .*/= $new_build_number/" $XCCONFIG_NAME
