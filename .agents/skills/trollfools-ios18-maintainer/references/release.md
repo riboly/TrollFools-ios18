@@ -46,7 +46,7 @@ Do not equate a successful workflow with a usable TrollStore Lite package. After
 7. Confirm `Assets.car` changed when the icon was changed.
 8. Calculate SHA-256 for final TIPA and DEB.
 
-When `TrollFoolsLoader.dylib` is packaged, also verify that it is executable, contains arm64 and arm64e slices, has install name `@rpath/TrollFoolsLoader.dylib`, contains `__DATA,__interpose`, and is not left as a standalone `/usr/local/lib` or `/var/jb/usr/local/lib` package entry.
+When `TrollFoolsLoader.dylib` is packaged, also verify that it is executable, contains arm64 and arm64e slices, has install name `@rpath/TrollFoolsLoader.dylib`, contains `__DATA,__interpose`, contains the `Guarded %lu reentrant UIKit setter hook(s)` diagnostic string, and is not left as a standalone `/usr/local/lib` or `/var/jb/usr/local/lib` package entry.
 
 Collect same-name multi-architecture dSYM bundles with `devkit/collect-dsyms.sh`; recursive copies overwrite DWARF files and can silently discard arm64e symbols. Verify both `TrollFoolsLoader.dylib.dSYM` and `TrollFoolsTweak.dylib.dSYM` contain arm64 and arm64e.
 

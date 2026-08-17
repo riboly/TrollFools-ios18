@@ -62,6 +62,8 @@ Separate these causes with the crash log:
 
 When a plug-in works after being attached to a decrypted IPA main executable but crashes after TrollFools selects an early framework, compare initializer order. The optional pre-main compatibility mode should report `Loading Mode: Pre-main deferred`, request only `@rpath/TrollFoolsLoader.dylib`, and list the plug-in in `Frameworks/TrollFoolsLoader.plist`. It must remove any direct load command for that deferred plug-in. A crash log is still required to distinguish a remaining hook-engine or app-version incompatibility.
 
+If a faulting thread contains hundreds of consecutive frames with the same plug-in image offset, treat it as recursion even when the termination namespace is `FRONTBOARD` and the code is `0x8BADF00D`. Confirm the image index, repeated offset count, stack-guard address, and the first non-repeated caller. Build 262 protects repeated entries into plug-in-owned UIKit visibility setter hooks after `dlopen`; constructor-time recursion, non-UIKit methods, and arbitrary plug-in logic remain plug-in failures and must stay visible in diagnostics.
+
 Do not label a crash as “iOS 18 incompatibility” without evidence identifying one of these layers.
 
 ## Report Integrity

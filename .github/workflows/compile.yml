@@ -74,6 +74,7 @@ jobs:
           lipo "$LOADER" -verify_arch arm64 arm64e
           otool -D "$LOADER" | grep -q '@rpath/TrollFoolsLoader.dylib'
           otool -l "$LOADER" | grep -q '__interpose'
+          strings "$LOADER" | grep -q 'Guarded %lu reentrant UIKit setter hook(s)'
           lipo TrollFoolsLoader.dylib.dSYM/Contents/Resources/DWARF/TrollFoolsLoader.dylib \
             -verify_arch arm64 arm64e
           lipo TrollFoolsTweak.dylib.dSYM/Contents/Resources/DWARF/TrollFoolsTweak.dylib \

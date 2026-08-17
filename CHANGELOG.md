@@ -1,5 +1,31 @@
 # Changelog
 
+## 4.3 Build 262 (2026-08-17)
+
+修复兼容加载成功后，部分插件的 UIKit setter hook 因对同一对象重复发送相同 setter 而递归至栈溢出的问题。
+
+### 修复与优化
+
+- 通用重入保护：启动前兼容 Loader 在每个插件加载后扫描该插件实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归进入时绕过重复插件调用并落到父类 UIKit setter。
+- 作用域隔离：保护仅在用户主动开启“启动前兼容加载”时生效，不改变默认直载模式，也不绑定目标 App、插件名称或某个设置键。
+- 崩溃诊断：确认 `0x8BADF00D` 可能是栈溢出先耗尽启动时间后的次生 watchdog；应同时检查重复插件帧，不能只按启动超时处理。
+- 发布校验：CI 确认打包 Loader 包含重入保护诊断字符串。
+
+------
+
+## 4.3 Build 262 (2026-08-17) [EN]
+
+Fixed stack exhaustion after compatibility loading when a plug-in's UIKit setter hook sends the same setter to the same object recursively.
+
+### Fixed and improved
+
+- Generic reentrancy guards: After loading each plug-in, the pre-main loader scans plug-in-owned `setHidden:`, `setAlpha:`, and `setUserInteractionEnabled:` hooks. A recursive entry into the same hook for the same object bypasses the repeated plug-in call and reaches the superclass UIKit setter.
+- Isolated scope: Guards are active only in the opt-in pre-main compatibility mode. Direct loading remains unchanged, and no app name, plug-in name, or preference key is hard-coded.
+- Crash diagnosis: `0x8BADF00D` can be secondary to stack recursion consuming the launch allowance; repeated plug-in frames must be checked before treating the report as a simple launch timeout.
+- Release validation: CI verifies that the packaged loader contains the reentrancy-guard diagnostic string.
+
+------
+
 ## 4.3 Build 261 (2026-08-17)
 
 修复部分插件注入和签名均成功、但因目标 framework 初始化顺序过早而导致 App 启动闪退的问题。

@@ -46,6 +46,8 @@ Dry Run intentionally modifies temporary copies only. A successful Dry Run must 
 - Preserve entitlements, transactional backup, validation, report sharing, and rollback behavior.
 - Add focused diagnostics for unknown failures; include executable path, command, backend, exit reason, stdout, and stderr without secrets.
 - For constructor or Objective-C `+load` crashes caused by injecting into an early framework, use the optional pre-main deferred loader rather than weakening validation. Preserve direct loading as the default baseline.
+- In pre-main mode, keep post-`dlopen` UIKit setter reentrancy guards scoped to implementations owned by the loaded plug-in. Never apply a process-wide setter swizzle or hard-code an app, plug-in, class, or preference key.
+- Treat `0x8BADF00D` plus hundreds of identical plug-in frames as recursion/stack exhaustion with a secondary watchdog termination. A watchdog code alone is not proof that `dlopen` was merely slow.
 - Keep all user-facing Chinese strings in localization files.
 - Update `devkit/bump-version.sh` if a branding or identifier change must survive future version bumps.
 - When reusable maintenance knowledge changes, update this repo-local Skill and the maintenance manual, push both with the code, then sync the installed Skill from this directory.
@@ -58,7 +60,7 @@ Follow [references/release.md](references/release.md). At minimum:
 2. Build through `.github/workflows/compile.yml` on GitHub Actions.
 3. Download and validate the TIPA and DEB rather than trusting a green workflow alone.
 4. Verify plist identity, ZIP readability and permissions, Mach-O slice count, and `ct_bypass` size/architecture.
-5. When the deferred loader is present, verify arm64+arm64e slices, `@rpath/TrollFoolsLoader.dylib`, and the `__interpose` section.
+5. When the deferred loader is present, verify arm64+arm64e slices, `@rpath/TrollFoolsLoader.dylib`, the `__interpose` section, and the packaged reentrancy-guard diagnostic string.
 6. Copy final artifacts to the output directory requested in the current task.
 7. Commit and push only intended files.
 8. Report `STATICALLY VERIFIED`, `DEVICE VERIFIED`, or `NOT VERIFIED` accurately.

@@ -47,6 +47,7 @@
 - `注入调试(Dry Run)`：只在临时副本执行修改和签名模拟，不改变已安装 App，所以下一次启动恢复关闭且插件列表保持为空
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
 - 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
+- 兼容加载重入保护：插件 `dlopen` 完成后，仅包装该插件在 `UIView` 子类上实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归时转发到父类 setter，避免插件内部重复 setter 导致栈溢出
 
 ## 5. 关键代码位置
 
@@ -80,6 +81,8 @@ iOS crash/Jetsam 日志路径：
 ```
 
 必须区分：TIPA 导入失败、预检失败、Mach-O 修改失败、ldid/签名失败、验证/回滚失败、AMFI/dyld 启动拒绝、插件初始化崩溃。不能把所有问题直接归因于“iOS 18 不支持”。
+
+`FRONTBOARD 0x8BADF00D` 不一定只是“插件加载太慢”。如果触发线程同时出现同一个插件 image offset 数百次连续重复，并最终接近 stack guard，应判定为插件递归导致的栈耗尽；watchdog 只是启动时间被递归消耗后的次生终止。Build 262 的可选兼容 Loader 会保护常见 UIKit 可见性 setter 重入，但不会吞掉任意插件异常，也不会修改插件偏好。
 
 Dry Run 显示 `SAFE TO INJECT` 且插件列表为空属于正确行为；它不会实际注入。Dry Run 通过也不等于已经完成真机启动验证。
 
@@ -115,7 +118,7 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 5. 下载 TIPA/DEB/dSYM。
 6. 解析 TIPA 内 Info.plist，核对名称、Bundle ID、版本、ZIP 完整性和 `0755` 权限。
 7. 解析主程序及 `ct_bypass` Mach-O 架构、slice 数和签名区，检查 helper 是否异常膨胀。
-8. 核对 `TrollFoolsLoader.dylib` 为 arm64+arm64e、install name 为 `@rpath/TrollFoolsLoader.dylib`，并包含 `__DATA,__interpose`；确认它只存在于 App 资源内，不残留为独立 rootless 库。
+8. 核对 `TrollFoolsLoader.dylib` 为 arm64+arm64e、install name 为 `@rpath/TrollFoolsLoader.dylib`，包含 `__DATA,__interpose` 和 `Guarded %lu reentrant UIKit setter hook(s)` 诊断字符串；确认它只存在于 App 资源内，不残留为独立 rootless 库。
 9. 使用 `devkit/collect-dsyms.sh` 按架构合并同名 dSYM，并确认 Loader/Tweak dSYM 均包含 arm64+arm64e，避免复制覆盖 arm64e 调试符号。
 10. 计算 SHA-256，并复制到当前任务指定的输出目录；不要假设固定桌面路径。
 11. 输出 GitHub Actions 链接、提交哈希、文件路径、SHA-256 和验证级别。
