@@ -6,7 +6,7 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 
 - `4.3-258` is device-verified for successful `GSPlayerInfo.dylib` injection on iPhone XS Max/A12, iOS 18.2.1, Dopamine Rootless 3.0.5, and TrollStore Lite 2.1.1.
 - `4.3-259` is the TrollFools.L branding/UI build and was statically verified when produced.
-- `4.3-262` adds opt-in plug-in-owned UIKit setter reentrancy guards; keep them scoped to the pre-main Loader and do not turn them into process-wide swizzles.
+- `4.3-262` is device-verified for the reported DYYY pre-main compatibility-loading crash. Its plug-in-owned UIKit setter reentrancy guards are generic for the covered selectors; keep them scoped to the pre-main Loader and do not turn them into process-wide swizzles.
 - Do not reintroduce CI rebuilding/replacement of `TrollFools/ct_bypass`; this caused the unusable 4.3-254 TIPA regression.
 - Preserve iOS 14-17 behavior while prioritizing the stated iOS 18 rootless environment.
 

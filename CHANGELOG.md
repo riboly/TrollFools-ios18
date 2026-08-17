@@ -10,6 +10,7 @@
 - 作用域隔离：保护仅在用户主动开启“启动前兼容加载”时生效，不改变默认直载模式，也不绑定目标 App、插件名称或某个设置键。
 - 崩溃诊断：确认 `0x8BADF00D` 可能是栈溢出先耗尽启动时间后的次生 watchdog；应同时检查重复插件帧，不能只按启动超时处理。
 - 发布校验：CI 确认打包 Loader 包含重入保护诊断字符串。
+- 真机验证：用户在 iPhone XS Max / iOS 18.2.1 上重新注入 DYYY 并开启启动前兼容加载后确认抖音成功启动；该结果验证的是已覆盖 UIKit setter 的同类递归保护，不代表所有插件崩溃类型。
 
 ------
 
@@ -23,6 +24,7 @@ Fixed stack exhaustion after compatibility loading when a plug-in's UIKit setter
 - Isolated scope: Guards are active only in the opt-in pre-main compatibility mode. Direct loading remains unchanged, and no app name, plug-in name, or preference key is hard-coded.
 - Crash diagnosis: `0x8BADF00D` can be secondary to stack recursion consuming the launch allowance; repeated plug-in frames must be checked before treating the report as a simple launch timeout.
 - Release validation: CI verifies that the packaged loader contains the reentrancy-guard diagnostic string.
+- Device validation: The user confirmed that Douyin launched successfully after reinjecting DYYY with pre-main compatibility loading on the iPhone XS Max / iOS 18.2.1 test device. This validates the covered UIKit setter recursion class, not every possible plug-in crash.
 
 ------
 

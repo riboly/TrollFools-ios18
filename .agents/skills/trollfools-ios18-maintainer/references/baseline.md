@@ -31,8 +31,8 @@ Compatibility priority: this device first, other arm64e iOS 18 devices second, a
 - `4.3-258`: **DEVICE VERIFIED**. The user confirmed successful injection of the existing `GSPlayerInfo.dylib` on the primary device.
 - `4.3-259`: branding and UI release. **STATICALLY VERIFIED** at creation time; injection logic is inherited from the 258 baseline.
 - `4.3-260`: **DEVICE VERIFIED for the reported WeChat and Telegram plug-ins** on the primary device. The strict-permission and idempotent-validation fixes resolved their injection failures. This does not imply that every plug-in is device-verified.
-- `4.3-261`: pre-main compatibility loader for plug-ins that crash during early framework initialization. **STATICALLY VERIFIED** until the user tests DYYY on the primary device.
-- `4.3-262`: plug-in-owned UIKit setter reentrancy guards in the opt-in pre-main loader. Created from two DYYY crash logs that showed 501 repeated `DYYY.dylib` frames and stack exhaustion. **STATICALLY VERIFIED** until tested on the primary device.
+- `4.3-261`: pre-main compatibility loader for plug-ins that crash during early framework initialization. Superseded by the device-tested Build 262 guard revision; the exact Build 261 package was not separately device-verified.
+- `4.3-262`: **DEVICE VERIFIED for the reported DYYY pre-main UIKit setter recursion** on the primary device. Two earlier DYYY crash logs showed 501 repeated `DYYY.dylib` frames and stack exhaustion; after reinjection with Build 262 and Pre-main Compatibility Loading enabled, the user confirmed that the app launched successfully. The implementation is not DYYY-specific, but this result does not verify unrelated selectors, arbitrary plug-in crashes, or every plug-in.
 
 Build 259 artifact source commit: `b604d276408d7ccb2ecaab946d1bf7bde8f576d4`.
 

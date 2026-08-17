@@ -19,6 +19,7 @@ Treat the checked-out repository and supplied device logs as authoritative. Do n
 
 - Preserve the injection behavior of version `4.3-258`, confirmed working on the real target device.
 - Treat `4.3-259` branding/UI/package as statically verified until installed and tested on the device.
+- Treat `4.3-262` as device-verified for the reported DYYY pre-main UIKit setter recursion on the primary device. This verifies the generic guard for that failure class, not every plug-in or crash class.
 - Keep Dopamine rootless distinct from RootHide and rootful. Use `/var/jb`; do not introduce `.roothide` or randomized `.jbroot-*` assumptions.
 - Treat a connected iPhone as read-only. Do not install packages, alter files, inject processes, restart services, or change settings unless the user explicitly authorizes that exact operation in the current task.
 - Do not modify `GSPlayerInfo.dylib` to hide an injector defect.

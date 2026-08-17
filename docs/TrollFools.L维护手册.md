@@ -31,6 +31,9 @@
 - `4.3-254`：出现打包回归，`ct_bypass` 被 CI 替换为约 8.44 MB 的 arm64+arm64e fat helper，TrollStore Lite 点击 TIPA 无反应。
 - `4.3-258`：**DEVICE VERIFIED**。用户已在上述真实设备确认 `GSPlayerInfo.dylib` 注入成功。
 - `4.3-259`：完成 TrollFools.L 品牌、图标、Bundle ID、广告移除、Dry Run UI 和策略说明；创建时为 **STATICALLY VERIFIED**。
+- `4.3-260`：**DEVICE VERIFIED（微信与 Telegram 报告场景）**。严格插件权限和幂等 load-command 验证修复已在真机确认。
+- `4.3-261`：加入启动前兼容 Loader；其精确安装包未单独完成真机验证，后续由 262 的保护版本取代。
+- `4.3-262`：**DEVICE VERIFIED（DYYY 启动前兼容加载及 UIKit setter 递归场景）**。用户在主设备重新注入并开启兼容加载后确认抖音成功启动。保护实现不绑定 DYYY，但本次结果不代表任意插件、任意 selector 或所有崩溃类型均已验证。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -82,7 +85,7 @@ iOS crash/Jetsam 日志路径：
 
 必须区分：TIPA 导入失败、预检失败、Mach-O 修改失败、ldid/签名失败、验证/回滚失败、AMFI/dyld 启动拒绝、插件初始化崩溃。不能把所有问题直接归因于“iOS 18 不支持”。
 
-`FRONTBOARD 0x8BADF00D` 不一定只是“插件加载太慢”。如果触发线程同时出现同一个插件 image offset 数百次连续重复，并最终接近 stack guard，应判定为插件递归导致的栈耗尽；watchdog 只是启动时间被递归消耗后的次生终止。Build 262 的可选兼容 Loader 会保护常见 UIKit 可见性 setter 重入，但不会吞掉任意插件异常，也不会修改插件偏好。
+`FRONTBOARD 0x8BADF00D` 不一定只是“插件加载太慢”。如果触发线程同时出现同一个插件 image offset 数百次连续重复，并最终接近 stack guard，应判定为插件递归导致的栈耗尽；watchdog 只是启动时间被递归消耗后的次生终止。Build 262 的可选兼容 Loader 会保护插件自有 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook 的同对象递归重入，且该机制已在 DYYY 报告场景完成真机验证；它不会吞掉任意插件异常，不会覆盖其他 selector，也不会修改插件偏好。
 
 Dry Run 显示 `SAFE TO INJECT` 且插件列表为空属于正确行为；它不会实际注入。Dry Run 通过也不等于已经完成真机启动验证。
 
