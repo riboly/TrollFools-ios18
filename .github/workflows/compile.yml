@@ -71,7 +71,7 @@ jobs:
           unzip -q TrollFools_*.tipa -d "$VALIDATION_DIR"
           LOADER="$VALIDATION_DIR/Payload/TrollFools.app/TrollFoolsLoader.dylib"
           test -x "$LOADER"
-          lipo -verify_arch arm64 arm64e "$LOADER"
+          lipo "$LOADER" -verify_arch arm64 arm64e
           otool -D "$LOADER" | grep -q '@rpath/TrollFoolsLoader.dylib'
           otool -l "$LOADER" | grep -q '__interpose'
           ! dpkg-deb --contents wiki.qaq.trollfools.l_*.deb \
