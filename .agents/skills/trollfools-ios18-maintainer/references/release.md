@@ -21,7 +21,7 @@ Do not bump the app version for documentation-only changes.
 
 ## GitHub Actions
 
-The normal CI entry is `.github/workflows/compile.yml`, triggered with `workflow_dispatch`. It uses Xcode 15.4, pinned Theos, rootless packaging, `make package`, and uploads TIPA/DEB/dSYM artifacts.
+The normal CI entry is `.github/workflows/compile.yml`, triggered by a push to `main`, `workflow_dispatch`, or a pull request targeting `main`. It uses Xcode 15.4, pinned Theos, rootless packaging, `make package`, and uploads TIPA/DEB/dSYM artifacts.
 
 For network operations in the user's environment, use:
 

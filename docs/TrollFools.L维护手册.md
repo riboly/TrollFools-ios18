@@ -111,7 +111,7 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 1. 检查 `git status`，完成最小代码修改和静态检查。
 2. 仅在需要应用新包时递增版本；文档修改不递增版本。
 3. 提交并推送 fork。
-4. 手动触发 `.github/workflows/compile.yml`。
+4. 推送 `main` 后由 `.github/workflows/compile.yml` 自动构建；也可使用 `workflow_dispatch` 手动重跑。
 5. 下载 TIPA/DEB/dSYM。
 6. 解析 TIPA 内 Info.plist，核对名称、Bundle ID、版本、ZIP 完整性和 `0755` 权限。
 7. 解析主程序及 `ct_bypass` Mach-O 架构、slice 数和签名区，检查 helper 是否异常膨胀。
