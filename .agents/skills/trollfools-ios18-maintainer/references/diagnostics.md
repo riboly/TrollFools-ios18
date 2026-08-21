@@ -45,9 +45,11 @@ For an unresolved `@rpath/<leaf>.dylib`, first check same-batch assets, the targ
 
 ### `ldid` Exits Nonzero
 
-Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm the bundled candidate plus `/var/jb/usr/bin/ldid` were attempted in rootless mode. In RootHide mode, first require a `jbroot` symbol owned by loaded `libroothide.dylib` and an executable dynamically mapped `/usr/bin/ldid`. A `RootHide fast-path` report additionally requires successful dynamically mapped `fastPathSign`. A `RootHide custom-trust` report requires TrollStore Lite helper markers for `jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE`, preserved original entitlements, and a successful read-back check after `ldid`. Never diagnose RootHide using a copied `.jbroot-*` prefix. A generic `return value 1` is a logging defect rather than a root-cause diagnosis.
+Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm the bundled candidate plus `/var/jb/usr/bin/ldid` were attempted in rootless mode. In RootHide mode, first require a `jbroot` symbol owned by loaded `libroothide.dylib` and an executable dynamically mapped `/usr/bin/ldid`. A `RootHide fast-path` report additionally requires successful dynamically mapped `fastPathSign`. A `RootHide trust-cache` report requires mapped `libjailbreak.dylib`, a validated `jbclient_trust_executable_recurse` symbol origin, preserved original entitlements, successful `ldid`, and a zero recursive-trust result for each real signed Mach-O. Never diagnose RootHide using a copied `.jbroot-*` prefix. A generic `return value 1` is a logging defect rather than a root-cause diagnosis.
 
-If a RootHide report falls back to `CoreTrust/ChOma`, inspect the emitted capability lines before changing signing code. Missing `fastPathSign` is expected on Dopamine RootHide 3.0.23; it is only fatal when neither a compatible custom-trust helper nor another validated backend is available.
+If a RootHide report falls back to `CoreTrust/ChOma`, inspect the emitted capability lines before changing signing code. Missing `fastPathSign` is expected on Dopamine RootHide 3.0.23; it is only fatal when the validated recursive trust API is also unavailable.
+
+Do not add `jb.pmap_cs.custom_trust` to an injected framework or dylib. RootHide consumes it from the process main executable only. If injection succeeds but every App Store target crashes, compare the final target CDHash with `jbctl trustcache info`; an absent hash indicates the signature was never trusted. The systemwide trust-file path intentionally skips removable App Store bundles without a TrollStore Lite marker, so successful ad-hoc signing alone is not sufficient.
 
 ### Injection Reports Success But App Crashes
 
@@ -63,6 +65,8 @@ Separate these causes with the crash log:
 8. missing substrate compatibility framework
 9. minimum OS/platform mismatch
 10. app-specific anti-tamper or runtime assumptions
+
+For a `RootHide trust-cache` result, confirm the report says real injection called recursive trust. Dry Run must explicitly say it skipped trust-cache mutation for temporary files; a Dry Run cannot prove that the final App CDHash is currently in the kernel trust cache.
 
 When a plug-in works after being attached to a decrypted IPA main executable but crashes after TrollFools selects an early framework, compare initializer order. The optional pre-main compatibility mode should report `Loading Mode: Pre-main deferred`, request only `@rpath/TrollFoolsLoader.dylib`, and list the plug-in in `Frameworks/TrollFoolsLoader.plist`. It must remove any direct load command for that deferred plug-in. A crash log is still required to distinguish a remaining hook-engine or app-version incompatibility.
 

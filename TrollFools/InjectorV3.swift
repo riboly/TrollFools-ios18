@@ -19,12 +19,15 @@ final class InjectorV3 {
         case coreTrustBypass = "CoreTrust/ChOma"
         case rootlessAdHoc = "Rootless ad-hoc"
         case rootHideFastPath = "RootHide fast-path"
-        case rootHideCustomTrust = "RootHide custom-trust"
+        case rootHideTrustCache = "RootHide trust-cache"
     }
 
+    typealias RootHideTrustExecutableRecurseFunction = @convention(c) (
+        UnsafePointer<CChar>,
+        UnsafeMutableRawPointer?
+    ) -> Int32
+
     static let rootlessLdidBinaryURL = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
-    static let rootHideCustomTrustEntitlementKey = "jb.pmap_cs.custom_trust"
-    static let rootHideCustomTrustEntitlementValue = "PMAP_CS_APP_STORE"
 
     static func rootHideMappedURL(forPath path: String) -> URL? {
         typealias JBRootFunction = @convention(c) (UnsafePointer<CChar>) -> UnsafePointer<CChar>?
@@ -75,23 +78,45 @@ final class InjectorV3 {
         return nil
     }()
 
-    static let rootHideCustomTrustHelperURL: URL? = {
-        guard let proxy = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite"),
-              let bundleURL = proxy.bundleURL()
+    static let rootHideJailbreakLibraryURL: URL? = {
+        guard let candidate = rootHideMappedURL(forPath: "/usr/lib/libjailbreak.dylib"),
+              FileManager.default.isReadableFile(atPath: candidate.path)
+        else {
+            return nil
+        }
+        return candidate
+    }()
+
+    private static let rootHideJailbreakLibraryHandle: UnsafeMutableRawPointer? = {
+        guard let libraryURL = rootHideJailbreakLibraryURL else { return nil }
+        return libraryURL.path.withCString { dlopen($0, RTLD_NOW | RTLD_LOCAL) }
+    }()
+
+    static let rootHideTrustExecutableRecurse: RootHideTrustExecutableRecurseFunction? = {
+        guard let libraryURL = rootHideJailbreakLibraryURL,
+              let handle = rootHideJailbreakLibraryHandle,
+              let symbol = dlsym(handle, "jbclient_trust_executable_recurse")
         else {
             return nil
         }
 
-        let helperURL = bundleURL.appendingPathComponent("trollstorehelper")
-        guard FileManager.default.isExecutableFile(atPath: helperURL.path),
-              let helperData = try? Data(contentsOf: helperURL),
-              helperData.range(of: Data(rootHideCustomTrustEntitlementKey.utf8)) != nil,
-              helperData.range(of: Data(rootHideCustomTrustEntitlementValue.utf8)) != nil
+        var symbolInfo = Dl_info()
+        guard dladdr(symbol, &symbolInfo) != 0,
+              let imageName = symbolInfo.dli_fname,
+              canonicalRootHidePath(String(cString: imageName)) == canonicalRootHidePath(libraryURL.path)
         else {
             return nil
         }
-        return helperURL
+        return unsafeBitCast(symbol, to: RootHideTrustExecutableRecurseFunction.self)
     }()
+
+    private static func canonicalRootHidePath(_ path: String) -> String {
+        let resolved = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
+        if resolved == "/var" || resolved.hasPrefix("/var/") {
+            return "/private" + resolved
+        }
+        return resolved
+    }
 
     static var signingCapabilityDiagnostics: [String] {
         let hasTrollStoreLite = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
@@ -100,7 +125,7 @@ final class InjectorV3 {
             "rootless ldid: \(FileManager.default.isExecutableFile(atPath: rootlessLdidBinaryURL.path) ? "available" : "missing")",
             "validated RootHide ldid mapping: \(rootHideLdidBinaryURL == nil ? "missing" : "available")",
             "RootHide fastPathSign mapping: \(rootHideFastPathSignBinaryURL == nil ? "missing" : "available")",
-            "TrollStore Lite custom-trust markers: \(rootHideCustomTrustHelperURL == nil ? "missing" : "available")",
+            "validated RootHide recursive trust API: \(rootHideTrustExecutableRecurse == nil ? "missing" : "available")",
         ]
     }
 
@@ -144,9 +169,9 @@ final class InjectorV3 {
         }
         if hasTrollStoreLite,
            Self.rootHideLdidBinaryURL != nil,
-           Self.rootHideCustomTrustHelperURL != nil
+           Self.rootHideTrustExecutableRecurse != nil
         {
-            return .rootHideCustomTrust
+            return .rootHideTrustCache
         }
         if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: Self.rootlessLdidBinaryURL.path) {
             return .rootlessAdHoc
