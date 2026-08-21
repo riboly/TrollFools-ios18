@@ -90,4 +90,6 @@ Never remove report viewing or sharing while changing the success/failure UI.
 
 ## Device Rule
 
-Use USB/Frida/SSH only for read-only collection explicitly requested by the user. Do not install anything, replace app files, sign binaries in place, inject a process, or alter the device while diagnosing unless that exact write operation is newly authorized.
+The user persistently authorizes OpenSSH and Frida for this project's diagnosis: process enumeration, attach, spawn, script loading, debug injection, and target-app launch or termination may be used without repeated approval. Changes within ordinary App Store app or TrollFools containers, plug-in files, injection backups, validated RootHide hidden temporary directories, and installation/testing of TrollFools TIPA builds are also allowed. Keep transactional backup, rollback, and exact-path validation.
+
+Never modify system/rootfs, system partition, bootstrap, preboot, launchd, Dopamine, or RootHide core files or boot configuration without new operation-specific authorization. Treat `/System`, `/bin`, `/sbin`, system `/usr`, `/Library`, and `/basebin` as protected. Do not update `jbctl`, clear or rebuild trust caches, install packages into protected paths, restart system services, perform a userspace reboot, or reboot the device. Normal app-scoped trust registration performed by TrollFools and read-only trust-cache inspection remain allowed.

@@ -27,7 +27,11 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 
 部分 RootHide shell 或进程视图也会暴露 `/var/jb` 兼容路径，因此后端选择必须先检查经过验证的 `libroothide`/`jbroot` RootHide 能力，再检查普通 rootless `/var/jb/usr/bin/ldid`。真正的 rootless 环境没有已验证的 `jbroot` 符号，不会被误分流。
 
-手机默认只读。AI 可以在用户明确同意时读取日志或设备信息，但禁止安装软件、修改文件、注入进程、重启服务或改变设置，除非当前任务单独明确授权了对应操作。
+### 真机调试长期授权
+
+用户已长期授权在维护和诊断本项目时使用 OpenSSH 与 Frida，包括进程枚举、附加、spawn 启动、加载脚本、调试注入，以及启动或终止目标 App；无需在每次任务中重复询问。也允许修改普通 App Store App 或 TrollFools 自身容器内的文件、插件、注入备份，使用经过验证的 RootHide 隐藏临时目录，以及安装和测试 TrollFools TIPA。以上操作必须继续保留事务备份、回滚和精确路径校验。
+
+授权的绝对边界是不修改手机系统或月余环境核心文件。未经用户以后针对具体操作再次明确授权，禁止修改、替换或删除 rootfs、系统分区、bootstrap、preboot、launchd、Dopamine/RootHide 核心与启动配置；`/System`、`/bin`、`/sbin`、系统 `/usr`、`/Library`、`/basebin` 一律按受保护路径处理。禁止更新 `jbctl`、清空或重建 trust cache、向受保护路径安装软件包、重启系统服务、userspace reboot 或重启手机。TrollFools 正常注入流程为目标 App 临时注册信任，以及只读查询 trust cache，不属于上述禁止操作。
 
 ## 3. 已验证基线
 
@@ -43,7 +47,7 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - `4.3-265`：**DEVICE FAILED（Dopamine RootHide 后端选择）**。本版加入 Bootstrap RootHide 的 `ldid` + `fastPathSign` 流程，但真机 Dopamine RootHide 3.0.23 并不存在 `/basebin/fastPathSign` 或 `/usr/bin/fastPathSign`，导致报告回退到 `CoreTrust/ChOma`，并在修改 Telegram 前因非 4K 对齐 CodeDirectory 被预检阻断。只读检查确认动态映射的 `/usr/bin/ldid` 正常，TrollStore Lite 1.0.4 实际使用 `jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE`。
 - `4.3-266`：**DEVICE FAILED（Dopamine RootHide 运行时信任）**。Dry Run 与正式注入均报告成功，但 Telegram 和另一个 App Store App 在不同插件、直接加载和启动前兼容加载下都会闪退。只读检查确认 Telegram 最终目标 CDHash 不在 jailbreak trust cache 中；`jb.pmap_cs.custom_trust` 只从进程主程序读取，写进 framework/dylib 不能信任它们。
 - `4.3-267`：**DEVICE FAILED（Dopamine RootHide 递归信任）**。递归 API 返回 0，但 RootHide 的递归收集器同样会跳过容器根目录没有 `_TrollStoreLite` 标记的 App Store framework；最终 CDHash 不在 trust cache，Telegram 仍在启动时闪退。
-- `4.3-268`：把 App Store 容器内的已签名 Mach-O 复制到经过校验的 RootHide 隐藏临时根，在那里调用递归信任 API，再把随机化后的已信任副本事务性复制回目标，并通过动态映射的 `/basebin/jbctl trustcache info` 验证最终 CDHash；不会创建 `_TrollStoreLite`。精确构建安装前标记 **STATICALLY VERIFIED**；真机手动对照已确认信任 Telegram 修改后的 `MtProtoKitFramework` 能恢复稳定启动。
+- `4.3-268`：**DEVICE VERIFIED（Dopamine RootHide / Telegram 12.9.2 / Lead1.44 报告场景）**。把 App Store 容器内的已签名 Mach-O 复制到经过校验的 RootHide 隐藏临时根，在那里调用递归信任 API，再把随机化后的已信任副本事务性复制回目标，并通过动态映射的 `/basebin/jbctl trustcache info` 验证最终 CDHash；不会创建 `_TrollStoreLite`。用户已在 iPhone XS Max / iOS 18.2.1 / Dopamine RootHide 3.0.23 上确认精确构建的 Dry Run、正式注入、RootHide 隐藏 staging、最终 trust-cache 校验、Telegram 注入 Lead1.44 后启动及本次测试范围内的功能均正常。此结论不代表任意 App 或任意插件均已验证。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -158,7 +162,7 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 ```text
 使用 $trollfools-ios18-maintainer 处理这个问题：<问题描述>。
 日志在：<路径>。
-先读取仓库和日志定位根因，再做最小修改、GitHub Actions 编译、TIPA 核验和仓库同步。禁止写入我的手机。
+先读取仓库和日志定位根因，再做最小修改、GitHub Actions 编译、TIPA 核验和仓库同步。允许按维护手册的长期授权使用 OpenSSH、Frida 及修改普通 App 容器；禁止修改手机系统或月余环境核心文件。
 ```
 
 ### 不支持 Skill 的其他 AI
@@ -168,7 +172,7 @@ $env:ALL_PROXY='socks5://192.168.6.110:7892'
 ```text
 当前工作目录是 TrollFools-ios18 仓库。请先读取 ./AGENTS.md、
 ./docs/TrollFools.L维护手册.md 和当前仓库代码，然后处理：<问题>。
-附件：<日志或截图路径>。先诊断根因，禁止写入手机，完成后构建、核验产物并同步 fork。
+附件：<日志或截图路径>。先诊断根因；允许按维护手册的长期授权使用 OpenSSH、Frida 及修改普通 App 容器，禁止修改手机系统或月余环境核心文件。完成后构建、核验产物并同步 fork。
 ```
 
 更完整的模板在 Skill 的 `references/request-template.md`。

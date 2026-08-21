@@ -21,7 +21,7 @@ Do not assume these values remain current. Confirm them from Git before editing.
 - Sileo and Filza
 - RootHide Manager 1.3.9
 - TrollStore Lite 1.0.4
-- Frida Server 17.17.0 RootHide build is present, but the device must remain read-only unless the user explicitly permits an operation.
+- Frida Server 17.17.0 RootHide build is present. The user persistently authorizes OpenSSH and Frida process enumeration, attach, spawn, script loading, debug injection, and target-app launch/termination, plus app-container and validated hidden-staging changes. System and Dopamine/RootHide core files remain protected as defined in the Skill guardrails.
 
 Compatibility priority: this device first, other arm64e iOS 18 devices second, and no regression for iOS 14-17 third.
 
@@ -41,7 +41,7 @@ The device-verified `4.3-258`, `4.3-262`, and `4.3-263` milestones below were es
 - `4.3-265`: **DEVICE FAILED for Dopamine RootHide capability selection**. The direct-injection report selected `CoreTrust/ChOma` and rejected Telegram's non-4K-aligned CodeDirectory before modification. Read-only device inspection confirmed the mapped `/usr/bin/ldid` exists, while `/basebin/fastPathSign` and `/usr/bin/fastPathSign` do not exist on Dopamine RootHide 3.0.23. TrollStore Lite 1.0.4 instead advertises `jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE` in its helper.
 - `4.3-266`: **DEVICE FAILED for Dopamine RootHide runtime trust**. Dry Run and real injection both reported success, but Telegram and another App Store app crashed at launch with different plug-ins and with direct or pre-main deferred loading. Read-only inspection showed the signed Telegram target CDHash was absent from the jailbreak trust cache. Dopamine reads `jb.pmap_cs.custom_trust` only from the process main executable, so adding it to frameworks and dylibs did not trust them.
 - `4.3-267`: **DEVICE FAILED for Dopamine RootHide runtime trust**. The recursive API returned zero but RootHide's recursive collector also skipped the modified App Store framework because the app container had no `_TrollStoreLite` marker. The framework CDHash remained absent from the jailbreak trust cache and Telegram crashed at launch.
-- `4.3-268`: copies removable-App Mach-Os to the validated hidden temporary root, calls the RootHide recursive trust API there, copies the randomized signed result back transactionally, and validates the final CDHash through dynamically mapped `jbctl trustcache info`. It never creates `_TrollStoreLite`. The exact build is **STATICALLY VERIFIED** until installed. A manual device control confirmed that trusting Telegram's modified `MtProtoKitFramework` CDHash restores a stable launch.
+- `4.3-268`: **DEVICE VERIFIED for the reported Dopamine RootHide / Telegram 12.9.2 / Lead1.44 workflow** on iPhone XS Max/iOS 18.2.1/Dopamine RootHide 3.0.23. It copies removable-App Mach-Os to the validated hidden temporary root, calls the RootHide recursive trust API there, copies the randomized signed result back transactionally, and validates the final CDHash through dynamically mapped `jbctl trustcache info` without creating `_TrollStoreLite`. The user confirmed the exact build's Dry Run, real injection, hidden staging, final trust-cache verification, Telegram launch after Lead1.44 injection, and functionality exercised in this test all work. This does not verify arbitrary apps or plug-ins.
 
 Build 259 artifact source commit: `b604d276408d7ccb2ecaab946d1bf7bde8f576d4`.
 
