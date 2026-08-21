@@ -19,9 +19,12 @@ final class InjectorV3 {
         case coreTrustBypass = "CoreTrust/ChOma"
         case rootlessAdHoc = "Rootless ad-hoc"
         case rootHideFastPath = "RootHide fast-path"
+        case rootHideCustomTrust = "RootHide custom-trust"
     }
 
     static let rootlessLdidBinaryURL = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
+    static let rootHideCustomTrustEntitlementKey = "jb.pmap_cs.custom_trust"
+    static let rootHideCustomTrustEntitlementValue = "PMAP_CS_APP_STORE"
 
     static func rootHideMappedURL(forPath path: String) -> URL? {
         typealias JBRootFunction = @convention(c) (UnsafePointer<CChar>) -> UnsafePointer<CChar>?
@@ -72,6 +75,35 @@ final class InjectorV3 {
         return nil
     }()
 
+    static let rootHideCustomTrustHelperURL: URL? = {
+        guard let proxy = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite"),
+              let bundleURL = proxy.bundleURL()
+        else {
+            return nil
+        }
+
+        let helperURL = bundleURL.appendingPathComponent("trollstorehelper")
+        guard FileManager.default.isExecutableFile(atPath: helperURL.path),
+              let helperData = try? Data(contentsOf: helperURL),
+              helperData.range(of: Data(rootHideCustomTrustEntitlementKey.utf8)) != nil,
+              helperData.range(of: Data(rootHideCustomTrustEntitlementValue.utf8)) != nil
+        else {
+            return nil
+        }
+        return helperURL
+    }()
+
+    static var signingCapabilityDiagnostics: [String] {
+        let hasTrollStoreLite = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
+        return [
+            "TrollStore Lite registration: \(hasTrollStoreLite ? "available" : "missing")",
+            "rootless ldid: \(FileManager.default.isExecutableFile(atPath: rootlessLdidBinaryURL.path) ? "available" : "missing")",
+            "validated RootHide ldid mapping: \(rootHideLdidBinaryURL == nil ? "missing" : "available")",
+            "RootHide fastPathSign mapping: \(rootHideFastPathSignBinaryURL == nil ? "missing" : "available")",
+            "TrollStore Lite custom-trust markers: \(rootHideCustomTrustHelperURL == nil ? "missing" : "available")",
+        ]
+    }
+
     static let temporaryRoot: URL = {
         let standardURL = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask).first!
@@ -104,14 +136,20 @@ final class InjectorV3 {
 
     var signingBackend: SigningBackend {
         let hasTrollStoreLite = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
-        if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: Self.rootlessLdidBinaryURL.path) {
-            return .rootlessAdHoc
-        }
         if hasTrollStoreLite,
            Self.rootHideLdidBinaryURL != nil,
            Self.rootHideFastPathSignBinaryURL != nil
         {
             return .rootHideFastPath
+        }
+        if hasTrollStoreLite,
+           Self.rootHideLdidBinaryURL != nil,
+           Self.rootHideCustomTrustHelperURL != nil
+        {
+            return .rootHideCustomTrust
+        }
+        if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: Self.rootlessLdidBinaryURL.path) {
+            return .rootlessAdHoc
         }
         return .coreTrustBypass
     }

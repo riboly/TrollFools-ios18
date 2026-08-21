@@ -512,6 +512,10 @@ extension InjectorV3 {
         } else if signingBackend == .rootHideFastPath {
             let fastPathSign = Self.rootHideFastPathSignBinaryURL?.path ?? "unavailable"
             report.warnings.append("TrollStore Lite RootHide capability detected through libroothide; ldid candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")); fastPathSign: \(fastPathSign).")
+        } else if signingBackend == .rootHideCustomTrust {
+            report.warnings.append("TrollStore Lite RootHide custom-trust capability detected; existing entitlements will be preserved and \(Self.rootHideCustomTrustEntitlementKey)=\(Self.rootHideCustomTrustEntitlementValue) will be added before ldid signing.")
+        } else {
+            report.warnings.append(contentsOf: Self.signingCapabilityDiagnostics.map { "Signing capability: \($0)." })
         }
         return report
     }
@@ -591,7 +595,7 @@ extension InjectorV3 {
     }
 
     fileprivate func applyDryRunSignature(_ target: URL) throws {
-        if signingBackend == .rootHideFastPath {
+        if signingBackend == .rootHideFastPath || signingBackend == .rootHideCustomTrust {
             try cmdCompatibleSign(target, teamID: teamID)
         } else {
             try cmdPseudoSign(target, force: true)
@@ -600,7 +604,10 @@ extension InjectorV3 {
 
     fileprivate func validateInjection(report: inout InjectionReport, transaction: InjectionTransaction) throws {
         guard let original = report.originalTargetMachO else {
-            report.finalEntitlementsMatch = entitlementsEqual(transaction.originalEntitlements, try? cmdExtractEntitlements(executableURL))
+            report.finalEntitlementsMatch = entitlementsMatchExpected(
+                transaction.originalEntitlements,
+                try? cmdExtractEntitlements(executableURL)
+            )
             return
         }
 
@@ -691,6 +698,13 @@ extension InjectorV3 {
             if !finalAsset.codeSignaturesValid {
                 report.errors.append("Final injected asset signature is invalid: \(copiedURL.lastPathComponent).")
             }
+            if signingBackend == .rootHideCustomTrust {
+                do {
+                    try validateRootHideCustomTrustEntitlement(copiedURL)
+                } catch {
+                    report.errors.append(error.localizedDescription)
+                }
+            }
             do {
                 try validateNormalizedSystemDylibRuntimePaths(finalAsset)
             } catch {
@@ -705,6 +719,13 @@ extension InjectorV3 {
             }
             if !finalLoader.codeSignaturesValid {
                 report.errors.append("Final deferred loader signature is invalid.")
+            }
+            if signingBackend == .rootHideCustomTrust {
+                do {
+                    try validateRootHideCustomTrustEntitlement(deferredLoaderDestinationURL)
+                } catch {
+                    report.errors.append(error.localizedDescription)
+                }
             }
 
             let manifest = try readDeferredLoaderManifest()
@@ -721,9 +742,9 @@ extension InjectorV3 {
         }
 
         let finalEntitlements = try? cmdExtractEntitlements(executableURL)
-        report.finalEntitlementsMatch = entitlementsEqual(transaction.originalEntitlements, finalEntitlements)
+        report.finalEntitlementsMatch = entitlementsMatchExpected(transaction.originalEntitlements, finalEntitlements)
         if transaction.originalEntitlements != nil, report.finalEntitlementsMatch != true {
-            report.errors.append("Main executable entitlements changed during injection.")
+            report.errors.append("Main executable entitlements changed beyond the selected signing backend's required additions.")
         }
         if !report.errors.isEmpty {
             throw Error.generic(report.errors.joined(separator: "\n"))
@@ -901,6 +922,45 @@ extension InjectorV3 {
               let rhsObject = try? PropertyListSerialization.propertyList(from: rhsData, options: [], format: nil) as? NSDictionary
         else { return false }
         return lhsObject.isEqual(rhsObject)
+    }
+
+    fileprivate func entitlementsMatchExpected(_ original: String?, _ final: String?) -> Bool {
+        guard signingBackend == .rootHideCustomTrust else {
+            return entitlementsEqual(original, final)
+        }
+        if entitlementsEqual(original, final) {
+            return true
+        }
+
+        let originalObject: NSDictionary
+        if let original {
+            guard let data = original.data(using: .utf8),
+                  let dictionary = try? PropertyListSerialization.propertyList(
+                      from: data,
+                      options: [],
+                      format: nil
+                  ) as? NSDictionary
+            else {
+                return false
+            }
+            originalObject = dictionary
+        } else {
+            originalObject = NSDictionary()
+        }
+
+        guard let final,
+              let data = final.data(using: .utf8),
+              let dictionary = try? PropertyListSerialization.propertyList(
+                  from: data,
+                  options: [.mutableContainersAndLeaves],
+                  format: nil
+              ) as? NSMutableDictionary,
+              dictionary[Self.rootHideCustomTrustEntitlementKey] as? String == Self.rootHideCustomTrustEntitlementValue
+        else {
+            return false
+        }
+        dictionary.removeObject(forKey: Self.rootHideCustomTrustEntitlementKey)
+        return originalObject.isEqual(dictionary)
     }
 
     fileprivate func appendUniqueReportErrors(_ description: String, to errors: inout [String]) {

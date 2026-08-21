@@ -102,6 +102,8 @@ extension InjectorV3 {
             Self.rootlessLdidBinaryURL
         case .rootHideFastPath:
             Self.rootHideLdidBinaryURL
+        case .rootHideCustomTrust:
+            Self.rootHideLdidBinaryURL
         case .coreTrustBypass:
             nil
         }
@@ -235,6 +237,57 @@ extension InjectorV3 {
         DDLogInfo("RootHide fastPathSign succeeded with \(binaryURL.path): \(target.path)", ddlog: logger)
     }
 
+    func cmdRootHideCustomTrustSign(_ target: URL) throws {
+        let existingEntitlements = try cmdExtractEntitlements(target)
+        var entitlements = [String: Any]()
+        if let existingEntitlements, !existingEntitlements.isEmpty {
+            guard let data = existingEntitlements.data(using: .utf8),
+                  let dictionary = try PropertyListSerialization.propertyList(
+                      from: data,
+                      options: [],
+                      format: nil
+                  ) as? [String: Any]
+            else {
+                throw Error.generic("Cannot parse existing entitlements for RootHide custom-trust signing: \(target.path)")
+            }
+            entitlements = dictionary
+        }
+
+        entitlements[Self.rootHideCustomTrustEntitlementKey] = Self.rootHideCustomTrustEntitlementValue
+        let entitlementsData = try PropertyListSerialization.data(
+            fromPropertyList: entitlements,
+            format: .xml,
+            options: 0
+        )
+        let entitlementsURL = temporaryDirectoryURL
+            .appendingPathComponent("\(UUID().uuidString)_\(target.lastPathComponent)")
+            .appendingPathExtension("xml")
+        try entitlementsData.write(to: entitlementsURL, options: .atomic)
+        defer { try? FileManager.default.removeItem(at: entitlementsURL) }
+
+        try runLdid(
+            arguments: ["-S\(entitlementsURL.path)", target.path],
+            operation: "RootHide custom-trust sign",
+            target: target
+        )
+        try validateRootHideCustomTrustEntitlement(target)
+    }
+
+    func validateRootHideCustomTrustEntitlement(_ target: URL) throws {
+        guard let entitlements = try cmdExtractEntitlements(target),
+              let data = entitlements.data(using: .utf8),
+              let dictionary = try PropertyListSerialization.propertyList(
+                  from: data,
+                  options: [],
+                  format: nil
+              ) as? [String: Any],
+              dictionary[Self.rootHideCustomTrustEntitlementKey] as? String == Self.rootHideCustomTrustEntitlementValue
+        else {
+            throw Error.generic("RootHide custom-trust entitlement validation failed: \(target.path)")
+        }
+        DDLogInfo("RootHide custom-trust entitlement validated: \(target.path)", ddlog: logger)
+    }
+
     // MARK: - mkdir
 
     fileprivate static let mkdirBinaryURL = findExecutable("mkdir")
@@ -344,6 +397,8 @@ extension InjectorV3 {
         case .rootHideFastPath:
             try cmdPseudoSign(target, force: true)
             try cmdRootHideFastPathSign(target)
+        case .rootHideCustomTrust:
+            try cmdRootHideCustomTrustSign(target)
         case .coreTrustBypass:
             try cmdCoreTrustBypass(target, teamID: teamID)
         }

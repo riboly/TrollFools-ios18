@@ -9,13 +9,14 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - `4.3-262` is device-verified for the reported DYYY pre-main compatibility-loading crash. Its plug-in-owned UIKit setter reentrancy guards are generic for the covered selectors; keep them scoped to the pre-main Loader and do not turn them into process-wide swizzles.
 - `4.3-263` is device-verified for successful injection and runtime use of the reported HBWechatHelper and MikotoHelper plug-ins. It recognizes `@rpath/<leaf>.dylib` aliases only when `dlopen_preflight` confirms the canonical `/usr/lib` system library, then adds and validates the plug-in's `/usr/lib` rpath. Do not downgrade genuinely missing third-party dependencies to warnings.
 - `4.3-264` proved that a dynamically mapped RootHide `ldid -S` alone is insufficient: Telegram 12.9.2 repeatedly failed at dyld launch after its selected framework was modified.
-- `4.3-265` completes the RootHide signing sequence with the dynamically mapped official `fastPathSign`, uses the real backend during Dry Run, and strengthens final Mach-O identity/rpath validation. Treat it as statically verified until installed and tested.
+- `4.3-265` is device-failed for Dopamine RootHide capability selection: Dopamine RootHide 3.0.23 has no runtime `fastPathSign`, so preflight fell back to `CoreTrust/ChOma` and rejected Telegram's non-4K-aligned CodeDirectory without modifying the app.
+- `4.3-266` adds the Dopamine/TrollStore Lite custom-trust backend while retaining Bootstrap `fastPathSign`, rootless ad-hoc, and ChOma backends. Treat it as statically verified until installed and tested.
 - Do not reintroduce CI rebuilding/replacement of `TrollFools/ct_bypass`; this caused the unusable 4.3-254 TIPA regression.
 - Preserve iOS 14-17 behavior while prioritizing the stated iOS 18 RootHide and rootless environments.
 
 ## Guardrails
 
-- Distinguish Dopamine rootless (`/var/jb`) from RootHide and rootful environments. Never hard-code `.roothide` or randomized `.jbroot-*` paths; resolve RootHide paths through a validated `jbroot` export from the loaded `libroothide.dylib` and then verify the mapped capability.
+- Distinguish Dopamine rootless (`/var/jb`) from RootHide and rootful environments. Check validated RootHide capabilities before `/var/jb` because a RootHide process view may expose that compatibility path. Never hard-code `.roothide` or randomized `.jbroot-*` paths; resolve RootHide paths through a validated `jbroot` export from the loaded `libroothide.dylib` and then verify whether the environment provides Bootstrap `fastPathSign` or TrollStore Lite's Dopamine custom-trust markers.
 - Treat any connected iPhone as read-only. Do not install, alter files, inject processes, restart services, or change settings without explicit authorization for that exact operation.
 - Diagnose from injection reports, application logs, and crash logs before editing.
 - Treat `0x8BADF00D` plus hundreds of identical plug-in frames as recursion/stack exhaustion before assuming a slow launch.

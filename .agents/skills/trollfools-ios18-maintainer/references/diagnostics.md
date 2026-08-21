@@ -45,7 +45,9 @@ For an unresolved `@rpath/<leaf>.dylib`, first check same-batch assets, the targ
 
 ### `ldid` Exits Nonzero
 
-Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm the bundled candidate plus `/var/jb/usr/bin/ldid` were attempted in rootless mode. In RootHide mode, require a `RootHide fast-path` report, a `jbroot` symbol owned by loaded `libroothide.dylib`, an executable dynamically mapped `/usr/bin/ldid` candidate, and a successful dynamically mapped official `fastPathSign`. Never diagnose RootHide using a copied `.jbroot-*` prefix. A valid ad-hoc CodeDirectory without `fastPathSign` is insufficient, and a generic `return value 1` is a logging defect rather than a root-cause diagnosis.
+Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm the bundled candidate plus `/var/jb/usr/bin/ldid` were attempted in rootless mode. In RootHide mode, first require a `jbroot` symbol owned by loaded `libroothide.dylib` and an executable dynamically mapped `/usr/bin/ldid`. A `RootHide fast-path` report additionally requires successful dynamically mapped `fastPathSign`. A `RootHide custom-trust` report requires TrollStore Lite helper markers for `jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE`, preserved original entitlements, and a successful read-back check after `ldid`. Never diagnose RootHide using a copied `.jbroot-*` prefix. A generic `return value 1` is a logging defect rather than a root-cause diagnosis.
+
+If a RootHide report falls back to `CoreTrust/ChOma`, inspect the emitted capability lines before changing signing code. Missing `fastPathSign` is expected on Dopamine RootHide 3.0.23; it is only fatal when neither a compatible custom-trust helper nor another validated backend is available.
 
 ### Injection Reports Success But App Crashes
 

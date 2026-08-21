@@ -45,7 +45,7 @@ Do not equate a successful workflow with a usable TrollStore Lite package. After
 6. Check `LC_CODE_SIGNATURE`, CodeDirectory identifier, and unexpected helper growth.
 7. Confirm `Assets.car` changed when the icon was changed.
 8. Calculate SHA-256 for final TIPA and DEB.
-9. For RootHide support, confirm the source contains the `RootHide fast-path` backend and the packaged main executable contains the RootHide capability diagnostics, `fastPathSign`, and `/usr/lib/libroothide.dylib`; Swift may not emit an enum raw-value string contiguously. Confirm source and documentation contain no device-specific `.jbroot-*` value.
+9. For RootHide support, confirm the source contains separate `RootHide fast-path` and `RootHide custom-trust` backends. The packaged main executable must contain RootHide capability diagnostics, `fastPathSign`, `jb.pmap_cs.custom_trust`, `PMAP_CS_APP_STORE`, and `/usr/lib/libroothide.dylib`; Swift may not emit enum raw-value strings contiguously. Confirm source and documentation contain no device-specific `.jbroot-*` value.
 
 When `TrollFoolsLoader.dylib` is packaged, also verify that it is executable, contains arm64 and arm64e slices, has install name `@rpath/TrollFoolsLoader.dylib`, contains `__DATA,__interpose`, contains the `Guarded %lu reentrant UIKit setter hook(s)` diagnostic string, and is not left as a standalone `/usr/local/lib` or `/var/jb/usr/local/lib` package entry.
 
