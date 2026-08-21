@@ -45,7 +45,7 @@ For an unresolved `@rpath/<leaf>.dylib`, first check same-batch assets, the targ
 
 ### `ldid` Exits Nonzero
 
-Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm the bundled candidate plus `/var/jb/usr/bin/ldid` were attempted in rootless mode. In RootHide mode, require a `RootHide ad-hoc` report, a `jbroot` symbol owned by loaded `libroothide.dylib`, and an executable dynamically mapped `/usr/bin/ldid` candidate. Never diagnose RootHide using a copied `.jbroot-*` prefix. A generic `return value 1` is a logging defect, not a root-cause diagnosis.
+Require the binary path, operation, target, exit code/signal, stdout, and stderr. Confirm the bundled candidate plus `/var/jb/usr/bin/ldid` were attempted in rootless mode. In RootHide mode, require a `RootHide fast-path` report, a `jbroot` symbol owned by loaded `libroothide.dylib`, an executable dynamically mapped `/usr/bin/ldid` candidate, and a successful dynamically mapped official `fastPathSign`. Never diagnose RootHide using a copied `.jbroot-*` prefix. A valid ad-hoc CodeDirectory without `fastPathSign` is insufficient, and a generic `return value 1` is a logging defect rather than a root-cause diagnosis.
 
 ### Injection Reports Success But App Crashes
 

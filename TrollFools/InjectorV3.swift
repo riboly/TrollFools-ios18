@@ -18,7 +18,7 @@ final class InjectorV3 {
     enum SigningBackend: String, Codable {
         case coreTrustBypass = "CoreTrust/ChOma"
         case rootlessAdHoc = "Rootless ad-hoc"
-        case rootHideAdHoc = "RootHide ad-hoc"
+        case rootHideFastPath = "RootHide fast-path"
     }
 
     static let rootlessLdidBinaryURL = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
@@ -62,6 +62,16 @@ final class InjectorV3 {
         return candidate
     }()
 
+    static let rootHideFastPathSignBinaryURL: URL? = {
+        for path in ["/basebin/fastPathSign", "/usr/bin/fastPathSign"] {
+            guard let candidate = rootHideMappedURL(forPath: path) else { continue }
+            if FileManager.default.isExecutableFile(atPath: candidate.path) {
+                return candidate
+            }
+        }
+        return nil
+    }()
+
     static let temporaryRoot: URL = {
         let standardURL = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask).first!
@@ -97,8 +107,11 @@ final class InjectorV3 {
         if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: Self.rootlessLdidBinaryURL.path) {
             return .rootlessAdHoc
         }
-        if hasTrollStoreLite && Self.rootHideLdidBinaryURL != nil {
-            return .rootHideAdHoc
+        if hasTrollStoreLite,
+           Self.rootHideLdidBinaryURL != nil,
+           Self.rootHideFastPathSignBinaryURL != nil
+        {
+            return .rootHideFastPath
         }
         return .coreTrustBypass
     }

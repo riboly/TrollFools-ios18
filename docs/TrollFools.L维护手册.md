@@ -37,7 +37,8 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - `4.3-261`：加入启动前兼容 Loader；其精确安装包未单独完成真机验证，后续由 262 的保护版本取代。
 - `4.3-262`：**DEVICE VERIFIED（DYYY 启动前兼容加载及 UIKit setter 递归场景）**。用户在主设备重新注入并开启兼容加载后确认抖音成功启动。保护实现不绑定 DYYY，但本次结果不代表任意插件、任意 selector 或所有崩溃类型均已验证。
 - `4.3-263`：**DEVICE VERIFIED（HBWechatHelper 与 MikotoHelper 报告场景）**。识别经 dyld 确认的 `@rpath/<系统 dylib>`，为插件安全补入 `/usr/lib` rpath，并保持真实第三方依赖缺失为阻断错误。用户已在主设备确认两个插件均能成功注入微信并正常使用；这不代表任意插件依赖均已验证。
-- `4.3-264`：加入 RootHide 与普通 Rootless 通用签名后端。已在当前 RootHide 设备进程内确认 `/var/jb/usr/bin/ldid` 和 `/usr/bin/ldid` 对 TrollFools 不可见，而 `libroothide` 的 `jbroot("/usr/bin/ldid")` 返回可执行的隐藏路径；RootHide 下的 Injector 临时目录、日志、报告和持久插件也通过同一能力放入隐藏根，更新检查改用无磁盘缓存的 ephemeral 会话。精确构建尚未安装测试，因此只能标记 **STATICALLY VERIFIED**，不能标记 DEVICE VERIFIED。
+- `4.3-264`：**DEVICE FAILED（RootHide / Telegram 12.9.2 / Lead1.44）**。本版加入 RootHide 路径与存储兼容，但签名流程只有动态映射的 `ldid -S`。Telegram 连续在 dyld 启动阶段报告 `Library missing: @rpath/MtProtoKitFramework.framework/MtProtoKitFramework`；下载核对的最终主程序仍含 `@executable_path/Frameworks`，证明不是简单遗漏 rpath，而是 RootHide 签名流程未执行官方 `fastPathSign`。
+- `4.3-265`：RootHide 后端要求动态映射的 `ldid` 与官方 `fastPathSign` 同时可用，先 ad-hoc 签名再执行 fast-path CoreTrust 签名；Dry Run 也执行真实后端，并增加最终目标 UUID、Mach-O 类型、原始 rpath 与 Frameworks rpath 保持校验。精确构建尚未安装测试，标记 **STATICALLY VERIFIED**。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -53,7 +54,7 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - TXT/JSON injection report 及查看/分享入口
 - `注入调试(Dry Run)`：只在临时副本执行修改和签名模拟，不改变已安装 App，所以下一次启动恢复关闭且插件列表保持为空
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
-- RootHide ad-hoc 签名：验证 `jbroot` 来自已加载的 `libroothide.dylib`，动态映射 `/usr/bin/ldid` 后检查可执行能力；当前候选仅用于诊断报告，不保存为固定环境配置，也不硬编码随机隐藏前缀
+- RootHide fast-path 签名：验证 `jbroot` 来自已加载的 `libroothide.dylib`，动态映射并验证 `/usr/bin/ldid` 与官方 `fastPathSign`；先执行 `ldid`，再执行 `fastPathSign`，两步均记录完整退出信息。候选路径仅用于当前能力与诊断，不保存随机隐藏前缀
 - RootHide 存储隔离：Injector Caches、日志、报告和持久插件目录动态映射到隐藏根；更新检查不使用共享 URLSession 的磁盘缓存或 Cookie 存储
 - 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
 - 兼容加载重入保护：插件 `dlopen` 完成后，仅包装该插件在 `UIView` 子类上实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归时转发到父类 setter，避免插件内部重复 setter 导致栈溢出

@@ -37,7 +37,8 @@ The device-verified `4.3-258`, `4.3-262`, and `4.3-263` milestones below were es
 - `4.3-261`: pre-main compatibility loader for plug-ins that crash during early framework initialization. Superseded by the device-tested Build 262 guard revision; the exact Build 261 package was not separately device-verified.
 - `4.3-262`: **DEVICE VERIFIED for the reported DYYY pre-main UIKit setter recursion** on the primary device. Two earlier DYYY crash logs showed 501 repeated `DYYY.dylib` frames and stack exhaustion; after reinjection with Build 262 and Pre-main Compatibility Loading enabled, the user confirmed that the app launched successfully. The implementation is not DYYY-specific, but this result does not verify unrelated selectors, arbitrary plug-in crashes, or every plug-in.
 - `4.3-263`: **DEVICE VERIFIED for the reported HBWechatHelper and MikotoHelper plug-ins** on the primary device. System dyld-cache alias detection and plug-in `/usr/lib` rpath normalization fixed their `@rpath/<leaf>.dylib` false missing-dependency failures; the user confirmed that both plug-ins inject successfully and work normally in WeChat. This does not verify arbitrary plug-in dependencies.
-- `4.3-264`: RootHide/rootless universal signing backend. The current RootHide device confirmed that TrollFools cannot see `/var/jb/usr/bin/ldid` or `/usr/bin/ldid`, while validated `libroothide` `jbroot("/usr/bin/ldid")` resolves to an executable hidden path. RootHide Injector storage uses the same mapping, and update checks use an ephemeral network session. The exact build is **STATICALLY VERIFIED** until installed and exercised on the device.
+- `4.3-264`: **DEVICE FAILED for RootHide injection**. Telegram 12.9.2 build 34474 repeatedly terminated at dyld launch with `Library missing: @rpath/MtProtoKitFramework.framework/MtProtoKitFramework` after the selected framework had been modified and ad-hoc signed. The final main executable still contained `@executable_path/Frameworks`, so the failure exposed the incomplete RootHide signing flow rather than a missing rpath command.
+- `4.3-265`: completes RootHide signing by running the dynamically mapped official `fastPathSign` after `ldid`, uses the same backend during Dry Run, and verifies the final target's required Frameworks rpath, UUID, file type, and original runtime paths. It is **STATICALLY VERIFIED** until the exact package is installed and tested.
 
 Build 259 artifact source commit: `b604d276408d7ccb2ecaab946d1bf7bde8f576d4`.
 
@@ -79,7 +80,7 @@ The typical dylib path is copied into the target app's `Frameworks` directory. T
 - Rootless capability is detected from an executable `/var/jb/usr/bin/ldid`.
 - Rootless ad-hoc signing tries the bundled `ldid` and then `/var/jb/usr/bin/ldid`, recording exit reason, stdout, and stderr.
 - RootHide capability is detected only when the `jbroot` symbol resolves from loaded `libroothide.dylib`, maps `/usr/bin/ldid`, and the mapped result is executable. The random hidden prefix must never be persisted or hard-coded.
-- RootHide ad-hoc signing tries the bundled `ldid` and then the dynamically mapped RootHide `ldid`, recording the same diagnostics as rootless.
+- RootHide signing tries the bundled `ldid` and then the dynamically mapped RootHide `ldid`, followed by the dynamically mapped official `fastPathSign`; every command records its exit reason, stdout, and stderr. RootHide capability requires both mapped tools.
 - RootHide maps Injector temporary storage, logs, reports, and persistent plug-ins into the hidden root. The update checker uses an ephemeral URLSession without disk cache or persistent cookie storage.
 - Other environments retain the existing CoreTrust/ChOma helper path.
 - Preserve original entitlements where the current pipeline does so.

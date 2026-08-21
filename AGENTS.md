@@ -8,7 +8,8 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - `4.3-259` is the TrollFools.L branding/UI build and was statically verified when produced.
 - `4.3-262` is device-verified for the reported DYYY pre-main compatibility-loading crash. Its plug-in-owned UIKit setter reentrancy guards are generic for the covered selectors; keep them scoped to the pre-main Loader and do not turn them into process-wide swizzles.
 - `4.3-263` is device-verified for successful injection and runtime use of the reported HBWechatHelper and MikotoHelper plug-ins. It recognizes `@rpath/<leaf>.dylib` aliases only when `dlopen_preflight` confirms the canonical `/usr/lib` system library, then adds and validates the plug-in's `/usr/lib` rpath. Do not downgrade genuinely missing third-party dependencies to warnings.
-- `4.3-264` adds a capability-detected RootHide ad-hoc signing backend, hidden Injector storage, and an ephemeral update-check session. The RootHide environment and official `jbroot` mapping were observed on the real device, but the exact package remains unverified until it is installed and tested.
+- `4.3-264` proved that a dynamically mapped RootHide `ldid -S` alone is insufficient: Telegram 12.9.2 repeatedly failed at dyld launch after its selected framework was modified.
+- `4.3-265` completes the RootHide signing sequence with the dynamically mapped official `fastPathSign`, uses the real backend during Dry Run, and strengthens final Mach-O identity/rpath validation. Treat it as statically verified until installed and tested.
 - Do not reintroduce CI rebuilding/replacement of `TrollFools/ct_bypass`; this caused the unusable 4.3-254 TIPA regression.
 - Preserve iOS 14-17 behavior while prioritizing the stated iOS 18 RootHide and rootless environments.
 

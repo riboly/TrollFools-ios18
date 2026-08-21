@@ -100,7 +100,7 @@ extension InjectorV3 {
         let environmentLdid: URL? = switch signingBackend {
         case .rootlessAdHoc:
             Self.rootlessLdidBinaryURL
-        case .rootHideAdHoc:
+        case .rootHideFastPath:
             Self.rootHideLdidBinaryURL
         case .coreTrustBypass:
             nil
@@ -217,6 +217,24 @@ extension InjectorV3 {
         return components.joined(separator: "; ")
     }
 
+    func cmdRootHideFastPathSign(_ target: URL) throws {
+        guard let binaryURL = Self.rootHideFastPathSignBinaryURL else {
+            throw Error.generic("RootHide fastPathSign is unavailable through the validated jbroot mapping.")
+        }
+
+        let receipt = try Execute.rootSpawnWithOutputs(
+            binary: binaryURL.path,
+            arguments: [target.path],
+            ddlog: logger
+        )
+        guard case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS else {
+            let detail = ldidFailureDetail(binaryURL: binaryURL, receipt: receipt)
+            DDLogError("RootHide fastPathSign failed for \(target.path): \(detail)", ddlog: logger)
+            throw Error.generic("RootHide fastPathSign failed for \(target.path): \(detail)")
+        }
+        DDLogInfo("RootHide fastPathSign succeeded with \(binaryURL.path): \(target.path)", ddlog: logger)
+    }
+
     // MARK: - mkdir
 
     fileprivate static let mkdirBinaryURL = findExecutable("mkdir")
@@ -321,8 +339,11 @@ extension InjectorV3 {
 
     func cmdCompatibleSign(_ target: URL, teamID: String) throws {
         switch signingBackend {
-        case .rootlessAdHoc, .rootHideAdHoc:
+        case .rootlessAdHoc:
             try cmdPseudoSign(target, force: true)
+        case .rootHideFastPath:
+            try cmdPseudoSign(target, force: true)
+            try cmdRootHideFastPathSign(target)
         case .coreTrustBypass:
             try cmdCoreTrustBypass(target, teamID: teamID)
         }

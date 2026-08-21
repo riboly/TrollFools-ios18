@@ -509,8 +509,9 @@ extension InjectorV3 {
         )
         if signingBackend == .rootlessAdHoc {
             report.warnings.append("TrollStore Lite rootless capability detected; ad-hoc signing candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")).")
-        } else if signingBackend == .rootHideAdHoc {
-            report.warnings.append("TrollStore Lite RootHide capability detected through libroothide; ad-hoc signing candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")).")
+        } else if signingBackend == .rootHideFastPath {
+            let fastPathSign = Self.rootHideFastPathSignBinaryURL?.path ?? "unavailable"
+            report.warnings.append("TrollStore Lite RootHide capability detected through libroothide; ldid candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")); fastPathSign: \(fastPathSign).")
         }
         return report
     }
@@ -530,7 +531,7 @@ extension InjectorV3 {
             try ensureSystemDylibRuntimePath(copyURL)
             try standardizeLoadCommandDylibToSubstrate(copyURL)
             let executable = checkIsBundle(copyURL) ? try locateExecutableInBundle(copyURL) : copyURL
-            try cmdPseudoSign(executable, force: true)
+            try applyDryRunSignature(executable)
             let metadata = try inspectMachO(executable)
             guard metadata.codeSignaturesValid else {
                 throw Error.generic("Dry Run produced an invalid CodeDirectory for \(assetURL.lastPathComponent).")
@@ -544,7 +545,7 @@ extension InjectorV3 {
             let sourceURL = try deferredLoaderResourceURL()
             let loaderCopyURL = simulationURL.appendingPathComponent(Self.deferredLoaderFileName)
             try FileManager.default.copyItem(at: sourceURL, to: loaderCopyURL)
-            try cmdPseudoSign(loaderCopyURL, force: true)
+            try applyDryRunSignature(loaderCopyURL)
             let loaderMetadata = try inspectMachO(loaderCopyURL)
             guard loaderMetadata.codeSignaturesValid else {
                 throw Error.generic("Dry Run produced an invalid CodeDirectory for \(Self.deferredLoaderFileName).")
@@ -573,16 +574,28 @@ extension InjectorV3 {
         for assetURL in loadCommandAssets {
             try insertLoadCommandOfAsset(assetURL, to: targetCopyURL)
         }
-        try cmdPseudoSign(targetCopyURL, force: true)
+        try applyDryRunSignature(targetCopyURL)
 
         let finalTarget = try inspectMachO(targetCopyURL)
         guard finalTarget.isStructurallyValid, finalTarget.codeSignaturesValid else {
             throw Error.generic("Dry Run produced an invalid target Mach-O or CodeDirectory.")
         }
+        let requiredRPath = "@executable_path/Frameworks"
+        guard finalTarget.slices.allSatisfy({ $0.runtimePaths.contains(requiredRPath) }) else {
+            throw Error.generic("Dry Run target is missing \(requiredRPath) in one or more slices.")
+        }
         for command in report.requestedLoadCommands where !finalTarget.slices.allSatisfy({ $0.dependencies.contains(command) }) {
             throw Error.generic("Dry Run target is missing \(command).")
         }
         report.warnings.append("Target Mach-O load-command and signing simulation passed.")
+    }
+
+    fileprivate func applyDryRunSignature(_ target: URL) throws {
+        if signingBackend == .rootHideFastPath {
+            try cmdCompatibleSign(target, teamID: teamID)
+        } else {
+            try cmdPseudoSign(target, force: true)
+        }
     }
 
     fileprivate func validateInjection(report: inout InjectionReport, transaction: InjectionTransaction) throws {
@@ -600,6 +613,10 @@ extension InjectorV3 {
             report.errors.append("Final Mach-O is structurally invalid.")
             throw Error.generic(report.errors.last!)
         }
+        let requiredRPath = "@executable_path/Frameworks"
+        if !final.slices.allSatisfy({ $0.runtimePaths.contains(requiredRPath) }) {
+            report.errors.append("Missing \(requiredRPath) in one or more final Mach-O slices.")
+        }
         for command in report.requestedLoadCommands {
             if !final.slices.allSatisfy({ $0.dependencies.contains(command) }) {
                 report.errors.append("Missing \(command) in one or more final Mach-O slices.")
@@ -614,6 +631,16 @@ extension InjectorV3 {
             guard let finalSlice = final.slices.first(where: { $0.architecture == originalSlice.architecture }) else {
                 report.errors.append("Signing removed the \(originalSlice.architecture) slice from the target Mach-O.")
                 continue
+            }
+            if finalSlice.fileType != originalSlice.fileType {
+                report.errors.append("Mach-O file type changed for \(originalSlice.architecture).")
+            }
+            if let originalUUID = originalSlice.uuid, finalSlice.uuid != originalUUID {
+                report.errors.append("Mach-O UUID changed for \(originalSlice.architecture): expected \(originalUUID), got \(finalSlice.uuid ?? "none").")
+            }
+            let missingOriginalRPaths = originalSlice.runtimePaths.filter { !finalSlice.runtimePaths.contains($0) }
+            if !missingOriginalRPaths.isEmpty {
+                report.errors.append("Original runtime paths were removed for \(originalSlice.architecture): \(missingOriginalRPaths.joined(separator: ", ")).")
             }
             if originalSlice.hasChainedFixups != finalSlice.hasChainedFixups {
                 report.errors.append("LC_DYLD_CHAINED_FIXUPS changed for \(originalSlice.architecture).")

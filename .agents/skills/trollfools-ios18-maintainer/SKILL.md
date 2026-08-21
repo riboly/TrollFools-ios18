@@ -21,7 +21,7 @@ Treat the checked-out repository and supplied device logs as authoritative. Do n
 - Treat `4.3-259` branding/UI/package as statically verified until installed and tested on the device.
 - Treat `4.3-262` as device-verified for the reported DYYY pre-main UIKit setter recursion on the primary device. This verifies the generic guard for that failure class, not every plug-in or crash class.
 - Treat `4.3-263` as device-verified for successful injection and runtime use of the reported HBWechatHelper and MikotoHelper plug-ins on the primary device. This does not verify arbitrary plug-in dependencies.
-- Treat `4.3-264` RootHide support as statically verified until the exact package is installed and tested. The RootHide environment and `jbroot` mapping were device-observed, not the final package behavior.
+- Treat `4.3-264` as device-failed for RootHide injection: Telegram 12.9.2 crashed at dyld launch because `ldid -S` alone did not complete RootHide's signing flow. Treat `4.3-265` as statically verified until its `ldid` plus official `fastPathSign` flow is installed and tested.
 - Keep Dopamine rootless distinct from RootHide and rootful. Use `/var/jb` for rootless; for RootHide, validate the `jbroot` export belongs to loaded `libroothide.dylib`, map the requested path dynamically, and verify the result. Never hard-code `.roothide`, randomized `.jbroot-*`, or a device-specific prefix.
 - Treat a connected iPhone as read-only. Do not install packages, alter files, inject processes, restart services, or change settings unless the user explicitly authorizes that exact operation in the current task.
 - Do not modify `GSPlayerInfo.dylib` to hide an injector defect.
@@ -48,7 +48,7 @@ Dry Run intentionally modifies temporary copies only. A successful Dry Run must 
 - Keep edits near existing ownership boundaries: `InjectorV3+Inject.swift`, `InjectorV3+Command.swift`, `InjectorV3+MachO.swift`, `InjectorV3+Backup.swift`, and the relevant SwiftUI view.
 - Preserve entitlements, transactional backup, validation, report sharing, and rollback behavior.
 - Add focused diagnostics for unknown failures; include executable path, command, backend, exit reason, stdout, and stderr without secrets.
-- Keep RootHide and rootless signing backends separately identifiable in reports, while preserving bundled `ldid` as the first candidate.
+- Keep RootHide and rootless signing backends separately identifiable in reports, while preserving bundled `ldid` as the first candidate. RootHide must run the validated, dynamically mapped official `fastPathSign` after `ldid`; a valid ad-hoc CodeDirectory alone is not sufficient evidence that dyld can map the modified image.
 - In RootHide, map Injector caches, reports, logs, and persistent plug-in storage through the same validated `jbroot` capability. Use an ephemeral update-check session to avoid persistent shared HTTP storage. Do not disable normal suspend/restoration behavior merely to suppress system-managed saved-state paths.
 - For constructor or Objective-C `+load` crashes caused by injecting into an early framework, use the optional pre-main deferred loader rather than weakening validation. Preserve direct loading as the default baseline.
 - In pre-main mode, keep post-`dlopen` UIKit setter reentrancy guards scoped to implementations owned by the loaded plug-in. Never apply a process-wide setter swizzle or hard-code an app, plug-in, class, or preference key.
