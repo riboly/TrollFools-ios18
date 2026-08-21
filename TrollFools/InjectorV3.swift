@@ -135,7 +135,7 @@ final class InjectorV3 {
             "validated RootHide ldid mapping: \(rootHideLdidBinaryURL == nil ? "missing" : "available")",
             "RootHide fastPathSign mapping: \(rootHideFastPathSignBinaryURL == nil ? "missing" : "available")",
             "validated RootHide recursive trust API: \(rootHideTrustExecutableRecurse == nil ? "missing" : "available")",
-            "RootHide trust-cache verification: \(rootHideJBCTLBinaryURL == nil ? "missing" : "available")",
+            "validated RootHide jbctl mapping (/basebin/jbctl): \(rootHideJBCTLBinaryURL == nil ? "missing" : "available")",
         ]
     }
 
