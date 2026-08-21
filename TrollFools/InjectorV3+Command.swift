@@ -97,13 +97,19 @@ extension InjectorV3 {
 
     var ldidBinaryURLs: [URL] {
         var candidates = [Self.bundledLdidBinaryURL]
-        if signingBackend == .rootlessAdHoc {
-            let rootlessLdid = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
-            if FileManager.default.isExecutableFile(atPath: rootlessLdid.path),
-               rootlessLdid.standardizedFileURL.path != Self.bundledLdidBinaryURL.standardizedFileURL.path
-            {
-                candidates.append(rootlessLdid)
-            }
+        let environmentLdid: URL? = switch signingBackend {
+        case .rootlessAdHoc:
+            Self.rootlessLdidBinaryURL
+        case .rootHideAdHoc:
+            Self.rootHideLdidBinaryURL
+        case .coreTrustBypass:
+            nil
+        }
+        if let environmentLdid,
+           FileManager.default.isExecutableFile(atPath: environmentLdid.path),
+           environmentLdid.standardizedFileURL.path != Self.bundledLdidBinaryURL.standardizedFileURL.path
+        {
+            candidates.append(environmentLdid)
         }
         return candidates
     }
@@ -315,7 +321,7 @@ extension InjectorV3 {
 
     func cmdCompatibleSign(_ target: URL, teamID: String) throws {
         switch signingBackend {
-        case .rootlessAdHoc:
+        case .rootlessAdHoc, .rootHideAdHoc:
             try cmdPseudoSign(target, force: true)
         case .coreTrustBypass:
             try cmdCoreTrustBypass(target, teamID: teamID)

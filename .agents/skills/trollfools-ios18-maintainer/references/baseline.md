@@ -17,12 +17,15 @@ Do not assume these values remain current. Confirm them from Git before editing.
 - iPhone XS Max
 - Apple A12 Bionic, arm64e-capable hardware
 - iOS 18.2.1 build 22C161
-- Dopamine Rootless 3.0.5
+- Dopamine RootHide 3.0.23
 - Sileo and Filza
-- TrollStore Lite 2.1.1
-- Frida 16.3.3 is present, but the device must remain read-only unless the user explicitly permits an operation.
+- RootHide Manager 1.3.9
+- TrollStore Lite 1.0.4
+- Frida Server 17.17.0 RootHide build is present, but the device must remain read-only unless the user explicitly permits an operation.
 
 Compatibility priority: this device first, other arm64e iOS 18 devices second, and no regression for iOS 14-17 third.
+
+The device-verified `4.3-258`, `4.3-262`, and `4.3-263` milestones below were established before the device changed environments, on Dopamine Rootless 3.0.5 with TrollStore Lite 2.1.1. Preserve them as regression baselines rather than reclassifying them as RootHide results.
 
 ## Verified Milestones
 
@@ -34,6 +37,7 @@ Compatibility priority: this device first, other arm64e iOS 18 devices second, a
 - `4.3-261`: pre-main compatibility loader for plug-ins that crash during early framework initialization. Superseded by the device-tested Build 262 guard revision; the exact Build 261 package was not separately device-verified.
 - `4.3-262`: **DEVICE VERIFIED for the reported DYYY pre-main UIKit setter recursion** on the primary device. Two earlier DYYY crash logs showed 501 repeated `DYYY.dylib` frames and stack exhaustion; after reinjection with Build 262 and Pre-main Compatibility Loading enabled, the user confirmed that the app launched successfully. The implementation is not DYYY-specific, but this result does not verify unrelated selectors, arbitrary plug-in crashes, or every plug-in.
 - `4.3-263`: **DEVICE VERIFIED for the reported HBWechatHelper and MikotoHelper plug-ins** on the primary device. System dyld-cache alias detection and plug-in `/usr/lib` rpath normalization fixed their `@rpath/<leaf>.dylib` false missing-dependency failures; the user confirmed that both plug-ins inject successfully and work normally in WeChat. This does not verify arbitrary plug-in dependencies.
+- `4.3-264`: RootHide/rootless universal signing backend. The current RootHide device confirmed that TrollFools cannot see `/var/jb/usr/bin/ldid` or `/usr/bin/ldid`, while validated `libroothide` `jbroot("/usr/bin/ldid")` resolves to an executable hidden path. RootHide Injector storage uses the same mapping, and update checks use an ephemeral network session. The exact build is **STATICALLY VERIFIED** until installed and exercised on the device.
 
 Build 259 artifact source commit: `b604d276408d7ccb2ecaab946d1bf7bde8f576d4`.
 
@@ -74,6 +78,9 @@ The typical dylib path is copied into the target app's `Frameworks` directory. T
 
 - Rootless capability is detected from an executable `/var/jb/usr/bin/ldid`.
 - Rootless ad-hoc signing tries the bundled `ldid` and then `/var/jb/usr/bin/ldid`, recording exit reason, stdout, and stderr.
+- RootHide capability is detected only when the `jbroot` symbol resolves from loaded `libroothide.dylib`, maps `/usr/bin/ldid`, and the mapped result is executable. The random hidden prefix must never be persisted or hard-coded.
+- RootHide ad-hoc signing tries the bundled `ldid` and then the dynamically mapped RootHide `ldid`, recording the same diagnostics as rootless.
+- RootHide maps Injector temporary storage, logs, reports, and persistent plug-ins into the hidden root. The update checker uses an ephemeral URLSession without disk cache or persistent cookie storage.
 - Other environments retain the existing CoreTrust/ChOma helper path.
 - Preserve original entitlements where the current pipeline does so.
 - Validate CodeDirectory code slots after signing and compare original/final slice identity to detect fat-to-thin regressions.

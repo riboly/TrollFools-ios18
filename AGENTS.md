@@ -8,12 +8,13 @@ Read `docs/TrollFools.L维护手册.md` and `.agents/skills/trollfools-ios18-mai
 - `4.3-259` is the TrollFools.L branding/UI build and was statically verified when produced.
 - `4.3-262` is device-verified for the reported DYYY pre-main compatibility-loading crash. Its plug-in-owned UIKit setter reentrancy guards are generic for the covered selectors; keep them scoped to the pre-main Loader and do not turn them into process-wide swizzles.
 - `4.3-263` is device-verified for successful injection and runtime use of the reported HBWechatHelper and MikotoHelper plug-ins. It recognizes `@rpath/<leaf>.dylib` aliases only when `dlopen_preflight` confirms the canonical `/usr/lib` system library, then adds and validates the plug-in's `/usr/lib` rpath. Do not downgrade genuinely missing third-party dependencies to warnings.
+- `4.3-264` adds a capability-detected RootHide ad-hoc signing backend, hidden Injector storage, and an ephemeral update-check session. The RootHide environment and official `jbroot` mapping were observed on the real device, but the exact package remains unverified until it is installed and tested.
 - Do not reintroduce CI rebuilding/replacement of `TrollFools/ct_bypass`; this caused the unusable 4.3-254 TIPA regression.
-- Preserve iOS 14-17 behavior while prioritizing the stated iOS 18 rootless environment.
+- Preserve iOS 14-17 behavior while prioritizing the stated iOS 18 RootHide and rootless environments.
 
 ## Guardrails
 
-- Distinguish Dopamine rootless (`/var/jb`) from RootHide and rootful environments. Do not add `.roothide` or randomized `.jbroot-*` paths.
+- Distinguish Dopamine rootless (`/var/jb`) from RootHide and rootful environments. Never hard-code `.roothide` or randomized `.jbroot-*` paths; resolve RootHide paths through a validated `jbroot` export from the loaded `libroothide.dylib` and then verify the mapped capability.
 - Treat any connected iPhone as read-only. Do not install, alter files, inject processes, restart services, or change settings without explicit authorization for that exact operation.
 - Diagnose from injection reports, application logs, and crash logs before editing.
 - Treat `0x8BADF00D` plus hundreds of identical plug-in frames as recursion/stack exhaustion before assuming a slow launch.

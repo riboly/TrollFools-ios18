@@ -509,6 +509,8 @@ extension InjectorV3 {
         )
         if signingBackend == .rootlessAdHoc {
             report.warnings.append("TrollStore Lite rootless capability detected; ad-hoc signing candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")).")
+        } else if signingBackend == .rootHideAdHoc {
+            report.warnings.append("TrollStore Lite RootHide capability detected through libroothide; ad-hoc signing candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")).")
         }
         return report
     }

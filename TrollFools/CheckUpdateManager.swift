@@ -18,6 +18,14 @@ final class CheckUpdateManager {
 
     static let shared = CheckUpdateManager()
 
+    private let updateSession: URLSession = {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.requestCachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        return URLSession(configuration: configuration)
+    }()
+
     // MARK: - Data Models
 
     struct LatestVersion: Codable {
@@ -174,7 +182,7 @@ final class CheckUpdateManager {
             cachePolicy: .reloadIgnoringLocalAndRemoteCacheData
         )
 
-        URLSession.shared.dataTask(with: request) { [weak self] jsonData, _, error in
+        updateSession.dataTask(with: request) { [weak self] jsonData, _, error in
             self?.handleUpdateCheckResponse(jsonData: jsonData, error: error, completion: completion)
         }.resume()
     }

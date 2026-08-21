@@ -45,6 +45,7 @@ Do not equate a successful workflow with a usable TrollStore Lite package. After
 6. Check `LC_CODE_SIGNATURE`, CodeDirectory identifier, and unexpected helper growth.
 7. Confirm `Assets.car` changed when the icon was changed.
 8. Calculate SHA-256 for final TIPA and DEB.
+9. For RootHide support, confirm the source and packaged main executable contain `RootHide ad-hoc` and `libroothide.dylib`, while source and documentation contain no device-specific `.jbroot-*` value.
 
 When `TrollFoolsLoader.dylib` is packaged, also verify that it is executable, contains arm64 and arm64e slices, has install name `@rpath/TrollFoolsLoader.dylib`, contains `__DATA,__interpose`, contains the `Guarded %lu reentrant UIKit setter hook(s)` diagnostic string, and is not left as a standalone `/usr/local/lib` or `/var/jb/usr/local/lib` package entry.
 

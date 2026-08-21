@@ -33,7 +33,7 @@
 
 ```text
 TrollFools.L 版本：
-iOS / 越狱 / TrollStore Lite 版本：
+iOS / 月余环境 / TrollStore Lite 版本：
 目标 App 与 Bundle ID：
 插件名称：
 关闭注入调试时的结果：
@@ -49,6 +49,6 @@ iOS 崩溃报告路径：
 
 ```text
 使用 $trollfools-ios18-maintainer 给 TrollFools.L 增加以下功能：<功能>。
-保持 4.3-258 已验证的注入链路，不破坏 iOS 14-17，不加入 RootHide 路径假设。
+保持 4.3-258 已验证的注入链路，不破坏 iOS 14-17；RootHide 只能使用经过验证的动态 `jbroot` 映射，不得写死隐藏前缀。
 请先指出修改文件、函数、风险和验证方法，再实现、触发 GitHub Actions、核验 TIPA，并同步到 fork。
 ```

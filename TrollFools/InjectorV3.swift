@@ -6,6 +6,7 @@
 //
 
 import CocoaLumberjackSwift
+import Darwin
 import Foundation
 
 final class InjectorV3 {
@@ -17,12 +18,57 @@ final class InjectorV3 {
     enum SigningBackend: String, Codable {
         case coreTrustBypass = "CoreTrust/ChOma"
         case rootlessAdHoc = "Rootless ad-hoc"
+        case rootHideAdHoc = "RootHide ad-hoc"
     }
 
-    static let temporaryRoot: URL = FileManager.default
+    static let rootlessLdidBinaryURL = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
+
+    static func rootHideMappedURL(forPath path: String) -> URL? {
+        typealias JBRootFunction = @convention(c) (UnsafePointer<CChar>) -> UnsafePointer<CChar>?
+
+        guard path.hasPrefix("/"),
+              let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "jbroot")
+        else {
+            return nil
+        }
+
+        var symbolInfo = Dl_info()
+        guard dladdr(symbol, &symbolInfo) != 0,
+              let imageName = symbolInfo.dli_fname,
+              String(cString: imageName).hasSuffix("/usr/lib/libroothide.dylib")
+        else {
+            return nil
+        }
+
+        let jbroot = unsafeBitCast(symbol, to: JBRootFunction.self)
+        guard let mappedPath = path.withCString({ pathPointer -> String? in
+            guard let mappedPath = jbroot(pathPointer) else { return nil }
+            return String(cString: mappedPath)
+        }), mappedPath.hasPrefix("/"), mappedPath != path, mappedPath.hasSuffix(path)
+        else {
+            return nil
+        }
+
+        return URL(fileURLWithPath: mappedPath).standardizedFileURL
+    }
+
+    static let rootHideLdidBinaryURL: URL? = {
+        guard let candidate = rootHideMappedURL(forPath: "/usr/bin/ldid") else {
+            return nil
+        }
+        guard FileManager.default.isExecutableFile(atPath: candidate.path) else {
+            return nil
+        }
+        return candidate
+    }()
+
+    static let temporaryRoot: URL = {
+        let standardURL = FileManager.default
         .urls(for: .cachesDirectory, in: .userDomainMask).first!
         .appendingPathComponent(Constants.gAppIdentifier, isDirectory: true)
         .appendingPathComponent("InjectorV3", isDirectory: true)
+        return rootHideMappedURL(forPath: standardURL.path) ?? standardURL
+    }()
 
     static let main = try! InjectorV3(Bundle.main.bundleURL)
 
@@ -48,9 +94,11 @@ final class InjectorV3 {
 
     var signingBackend: SigningBackend {
         let hasTrollStoreLite = LSApplicationProxy(forIdentifier: "com.opa334.TrollStoreLite") != nil
-        let rootlessLdid = URL(fileURLWithPath: "/var/jb/usr/bin/ldid")
-        if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: rootlessLdid.path) {
+        if hasTrollStoreLite && FileManager.default.isExecutableFile(atPath: Self.rootlessLdidBinaryURL.path) {
             return .rootlessAdHoc
+        }
+        if hasTrollStoreLite && Self.rootHideLdidBinaryURL != nil {
+            return .rootHideAdHoc
         }
         return .coreTrustBypass
     }
@@ -139,7 +187,8 @@ final class InjectorV3 {
     // MARK: - Persistent
 
     static let persistentPlugInsRootURL: URL = {
-        let url = URL(fileURLWithPath: "/var/mobile/Library/TrollFools/PersistentPlugins")
+        let standardURL = URL(fileURLWithPath: "/var/mobile/Library/TrollFools/PersistentPlugins")
+        let url = rootHideMappedURL(forPath: standardURL.path) ?? standardURL
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }()

@@ -17,11 +17,13 @@
 
 - iPhone XS Max，Apple A12 Bionic，arm64e 设备
 - iOS 18.2.1（22C161）
-- Dopamine Rootless 3.0.5
-- TrollStore Lite 2.1.1
-- 已安装 Sileo、Filza、Frida 16.3.3
+- Dopamine RootHide 3.0.23
+- TrollStore Lite 1.0.4
+- 已安装 Sileo、Filza、RootHide Manager 1.3.9、Frida Server 17.17.0（RootHide build）
 
-这是 Dopamine Rootless，不是 RootHide，也不是 Rootful。Rootless 工具路径以 `/var/jb` 为主，不得加入 `.roothide` 或随机 `.jbroot-*` 路径假设。
+当前设备已从 Dopamine Rootless 切换到 Dopamine RootHide。`4.3-258`、`4.3-262`、`4.3-263` 的既有真机结论来自切换前的 Dopamine Rootless 3.0.5 / TrollStore Lite 2.1.1 环境，仍是必须保留的回归基线。
+
+RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；其隐藏根前缀每次环境都可能变化。代码不得写死 `.roothide`、`.jbroot-*` 或本机当前前缀，只能验证 `jbroot` 符号来自已加载的 `libroothide.dylib`，调用它映射工具路径，再检查映射结果是否真的可执行。普通 Rootless 继续使用 `/var/jb` 能力检测。
 
 手机默认只读。AI 可以在用户明确同意时读取日志或设备信息，但禁止安装软件、修改文件、注入进程、重启服务或改变设置，除非当前任务单独明确授权了对应操作。
 
@@ -35,6 +37,7 @@
 - `4.3-261`：加入启动前兼容 Loader；其精确安装包未单独完成真机验证，后续由 262 的保护版本取代。
 - `4.3-262`：**DEVICE VERIFIED（DYYY 启动前兼容加载及 UIKit setter 递归场景）**。用户在主设备重新注入并开启兼容加载后确认抖音成功启动。保护实现不绑定 DYYY，但本次结果不代表任意插件、任意 selector 或所有崩溃类型均已验证。
 - `4.3-263`：**DEVICE VERIFIED（HBWechatHelper 与 MikotoHelper 报告场景）**。识别经 dyld 确认的 `@rpath/<系统 dylib>`，为插件安全补入 `/usr/lib` rpath，并保持真实第三方依赖缺失为阻断错误。用户已在主设备确认两个插件均能成功注入微信并正常使用；这不代表任意插件依赖均已验证。
+- `4.3-264`：加入 RootHide 与普通 Rootless 通用签名后端。已在当前 RootHide 设备进程内确认 `/var/jb/usr/bin/ldid` 和 `/usr/bin/ldid` 对 TrollFools 不可见，而 `libroothide` 的 `jbroot("/usr/bin/ldid")` 返回可执行的隐藏路径；RootHide 下的 Injector 临时目录、日志、报告和持久插件也通过同一能力放入隐藏根，更新检查改用无磁盘缓存的 ephemeral 会话。精确构建尚未安装测试，因此只能标记 **STATICALLY VERIFIED**，不能标记 DEVICE VERIFIED。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -50,6 +53,8 @@
 - TXT/JSON injection report 及查看/分享入口
 - `注入调试(Dry Run)`：只在临时副本执行修改和签名模拟，不改变已安装 App，所以下一次启动恢复关闭且插件列表保持为空
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
+- RootHide ad-hoc 签名：验证 `jbroot` 来自已加载的 `libroothide.dylib`，动态映射 `/usr/bin/ldid` 后检查可执行能力；当前候选仅用于诊断报告，不保存为固定环境配置，也不硬编码随机隐藏前缀
+- RootHide 存储隔离：Injector Caches、日志、报告和持久插件目录动态映射到隐藏根；更新检查不使用共享 URLSession 的磁盘缓存或 Cookie 存储
 - 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
 - 兼容加载重入保护：插件 `dlopen` 完成后，仅包装该插件在 `UIView` 子类上实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归时转发到父类 setter，避免插件内部重复 setter 导致栈溢出
 - 系统 dylib 别名兼容：当插件依赖为 `@rpath/<leaf>.dylib` 时，用 `dlopen_preflight` 检查 `/usr/lib/<leaf>.dylib` 是否由当前 iOS/dyld cache 提供；确认后检查插件 header padding 并补 `/usr/lib` rpath，Dry Run 与真实注入执行同一规范化
@@ -87,6 +92,10 @@ iOS crash/Jetsam 日志路径：
 
 必须区分：TIPA 导入失败、预检失败、Mach-O 修改失败、ldid/签名失败、验证/回滚失败、AMFI/dyld 启动拒绝、插件初始化崩溃。不能把所有问题直接归因于“iOS 18 不支持”。
 
+RootHide 下如果报告仍显示 `CoreTrust/ChOma`，先检查 TrollStore Lite 是否可由 `LSApplicationProxy` 查询、`libroothide.dylib` 是否已加载、`jbroot` 符号来源是否正确，以及映射后的 `/usr/bin/ldid` 是否可执行。不得把当前设备的 `.jbroot-*` 实际值复制进源码。
+
+RootHide 下不得在真实 `/var/mobile/Library/Caches/wiki.qaq.TrollFools.L` 保存 Injector 数据；`temporaryRoot` 和持久插件目录必须走同一套已验证 `jbroot` 映射。更新检查使用 ephemeral URLSession，以免主动创建持久 HTTP storage。`Saved Application State` 属于系统场景恢复链路，当前 RootHide 没有可验证的公开重定向能力；不要用 `UIApplicationExitsOnSuspend` 等会破坏正常挂起/恢复的设置规避它。
+
 iOS 的系统 dylib 可能只存在于 dyld shared cache，`FileManager.fileExists("/usr/lib/...")` 返回 false 不能证明依赖缺失。对于 `@rpath/<leaf>.dylib`，应先用 dyld 的 `dlopen_preflight` 检查规范 `/usr/lib` 路径；成功时可通过插件自身的 `/usr/lib` rpath 解析，失败且 App/同批资产中也找不到时才属于真正未解析依赖。不得把任意 `@rpath` 依赖直接降级为警告。
 
 `FRONTBOARD 0x8BADF00D` 不一定只是“插件加载太慢”。如果触发线程同时出现同一个插件 image offset 数百次连续重复，并最终接近 stack guard，应判定为插件递归导致的栈耗尽；watchdog 只是启动时间被递归消耗后的次生终止。Build 262 的可选兼容 Loader 会保护插件自有 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook 的同对象递归重入，且该机制已在 DYYY 报告场景完成真机验证；它不会吞掉任意插件异常，不会覆盖其他 selector，也不会修改插件偏好。
@@ -101,10 +110,11 @@ Dry Run 显示 `SAFE TO INJECT` 且插件列表为空属于正确行为；它不
 4. 不关闭签名/Mach-O validation，不用 try/catch 吞掉根因。
 5. 保留原始 entitlements，校验签名前后 slice、CodeDirectory 和 load commands。
 6. 使用运行时 capability detection，不仅按 `iOS >= 18` 分支。
-7. 中文 UI 文案写入本地化文件，长说明必须允许换行。
-8. 修改前检查 Git dirty state，不覆盖用户未提交改动。
-9. 真实设备未测试时只标记 `STATICALLY VERIFIED`，不得宣称支持已经真机验证。
-10. 代码修改产生了可复用的维护、诊断或发布经验时，必须同步更新本手册和 repo-local Skill，并随代码一起 push 到 GitHub；repo-local Skill 是用户级已安装 Skill 的同步源。
+7. RootHide 路径必须通过已验证的 `libroothide`/`jbroot` 能力获得；普通 Rootless 保持 `/var/jb`，两者不得混为同一固定路径。
+8. 中文 UI 文案写入本地化文件，长说明必须允许换行。
+9. 修改前检查 Git dirty state，不覆盖用户未提交改动。
+10. 真实设备未测试时只标记 `STATICALLY VERIFIED`，不得宣称支持已经真机验证。
+11. 代码修改产生了可复用的维护、诊断或发布经验时，必须同步更新本手册和 repo-local Skill，并随代码一起 push 到 GitHub；repo-local Skill 是用户级已安装 Skill 的同步源。
 
 ## 8. 构建和发布
 
