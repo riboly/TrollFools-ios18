@@ -53,6 +53,7 @@ extension InjectorV3 {
 
     func inject(_ assetURLs: [URL], shouldPersist: Bool) throws {
         didUseMachOEnumerationFallback = false
+        rootHideTrustDiagnostics.removeAll()
         let preparedAssetURLs = try preprocessAssets(assetURLs)
         precondition(!preparedAssetURLs.isEmpty, "No asset to inject.")
 
@@ -123,6 +124,7 @@ extension InjectorV3 {
 
     func dryRun(_ assetURLs: [URL]) throws -> InjectionReport {
         didUseMachOEnumerationFallback = false
+        rootHideTrustDiagnostics.removeAll()
         let preparedAssetURLs = try preprocessAssets(assetURLs)
         var report = try preflight(preparedAssetURLs)
         if report.isSafe {
@@ -513,7 +515,7 @@ extension InjectorV3 {
             let fastPathSign = Self.rootHideFastPathSignBinaryURL?.path ?? "unavailable"
             report.warnings.append("TrollStore Lite RootHide capability detected through libroothide; ldid candidates: \(ldidBinaryURLs.map(\.path).joined(separator: ", ")); fastPathSign: \(fastPathSign).")
         } else if signingBackend == .rootHideTrustCache {
-            report.warnings.append("RootHide recursive trust capability detected; real injection will preserve entitlements, ad-hoc sign each modified Mach-O, and upload its CDHash through the validated libjailbreak API. Dry Run does not upload temporary CDHashes.")
+            report.warnings.append("RootHide recursive trust capability detected; real injection will preserve entitlements, ad-hoc sign each modified Mach-O, trust removable-App files through the validated hidden staging root, copy the randomized signature back, and verify the final CDHash in the jailbreak trust cache. Dry Run does not upload temporary CDHashes.")
         } else {
             report.warnings.append(contentsOf: Self.signingCapabilityDiagnostics.map { "Signing capability: \($0)." })
         }
@@ -924,6 +926,9 @@ extension InjectorV3 {
     }
 
     fileprivate func writeInjectionReport(_ report: inout InjectionReport, backupURL: URL? = nil) throws {
+        for diagnostic in rootHideTrustDiagnostics where !report.warnings.contains(diagnostic) {
+            report.warnings.append(diagnostic)
+        }
         try FileManager.default.createDirectory(at: logsDirectoryURL, withIntermediateDirectories: true)
         let baseName = "injection-report-\(Int(Date().timeIntervalSince1970))-\(UUID().uuidString)"
         let textURL = logsDirectoryURL.appendingPathComponent(baseName).appendingPathExtension("txt")

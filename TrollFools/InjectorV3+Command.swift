@@ -283,11 +283,93 @@ extension InjectorV3 {
         guard let trustExecutableRecurse = Self.rootHideTrustExecutableRecurse else {
             throw Error.generic("RootHide recursive trust API is unavailable through the validated jbroot mapping.")
         }
-        let result = target.path.withCString { trustExecutableRecurse($0, nil) }
-        guard result == 0 else {
-            throw Error.generic("RootHide recursive trust failed for \(target.path): result \(result)")
+
+        let originalCDHashes = try inspectMachO(target).slices.compactMap(\.cdHash)
+        let usesHiddenStaging = removableAppContainerURL(containing: target) != nil
+        let trustTarget: URL
+        if usesHiddenStaging {
+            trustTarget = temporaryDirectoryURL
+                .appendingPathComponent("RootHideTrust-\(UUID().uuidString)-\(target.lastPathComponent)")
+            try cmdCopy(from: target, to: trustTarget, clone: true, overwrite: true)
+        } else {
+            trustTarget = target
         }
-        DDLogInfo("RootHide recursive trust succeeded: \(target.path)", ddlog: logger)
+        defer {
+            if usesHiddenStaging, FileManager.default.fileExists(atPath: trustTarget.path) {
+                try? cmdRemove(trustTarget)
+            }
+        }
+
+        let result = trustTarget.path.withCString { trustExecutableRecurse($0, nil) }
+        guard result == 0 else {
+            throw Error.generic("RootHide recursive trust failed for \(trustTarget.path): result \(result)")
+        }
+
+        let finalCDHashes = try inspectMachO(trustTarget).slices.compactMap(\.cdHash)
+        guard !finalCDHashes.isEmpty else {
+            throw Error.generic("RootHide recursive trust produced no verifiable CDHash for \(trustTarget.path).")
+        }
+        let trustedCDHashes = try verifiedRootHideTrustCacheCDHashes(finalCDHashes)
+        guard !trustedCDHashes.isEmpty else {
+            throw Error.generic(
+                "RootHide recursive trust returned success but the final CDHash is absent from the trust cache: \(target.path) [\(finalCDHashes.joined(separator: ", "))]"
+            )
+        }
+
+        if usesHiddenStaging {
+            try cmdCopy(from: trustTarget, to: target, clone: true, overwrite: true)
+            let copiedCDHashes = try inspectMachO(target).slices.compactMap(\.cdHash)
+            guard copiedCDHashes == finalCDHashes else {
+                throw Error.generic(
+                    "RootHide hidden staging copy-back changed the trusted CDHash: \(target.path) [expected \(finalCDHashes.joined(separator: ", ")), got \(copiedCDHashes.joined(separator: ", "))]"
+                )
+            }
+        }
+
+        let transition = originalCDHashes == finalCDHashes
+            ? "unchanged (already trusted or idempotent)"
+            : "\(originalCDHashes.joined(separator: ", ")) -> \(finalCDHashes.joined(separator: ", "))"
+        let route = usesHiddenStaging ? " via hidden staging" : ""
+        let diagnostic = "RootHide trust-cache verified\(route) for \(target.lastPathComponent): \(trustedCDHashes.joined(separator: ", ")); CDHash \(transition)."
+        rootHideTrustDiagnostics.append(diagnostic)
+        DDLogInfo(diagnostic, ddlog: logger)
+    }
+
+    private func verifiedRootHideTrustCacheCDHashes(_ cdHashes: [String]) throws -> [String] {
+        guard let jbctlURL = Self.rootHideJBCTLBinaryURL else {
+            throw Error.generic("RootHide trust-cache verification is unavailable through the validated jbroot mapping.")
+        }
+        let receipt = try Execute.rootSpawnWithOutputs(
+            binary: jbctlURL.path,
+            arguments: ["trustcache", "info"],
+            ddlog: logger
+        )
+        guard case let .exit(code) = receipt.terminationReason, code == EXIT_SUCCESS else {
+            let detail = ldidFailureDetail(binaryURL: jbctlURL, receipt: receipt)
+            throw Error.generic("RootHide trust-cache verification failed: \(detail)")
+        }
+        return cdHashes.filter { receipt.stdout.range(of: $0, options: .caseInsensitive) != nil }
+    }
+
+    private func removableAppContainerURL(containing target: URL) -> URL? {
+        var path = target.standardizedFileURL.path
+        if path == "/rootfs" || path.hasPrefix("/rootfs/") {
+            path.removeFirst("/rootfs".count)
+        }
+        if path == "/var" || path.hasPrefix("/var/") {
+            path = "/private" + path
+        }
+
+        let prefix = "/private/var/containers/Bundle/Application/"
+        guard path.hasPrefix(prefix) else { return nil }
+        let remainder = path.dropFirst(prefix.count)
+        guard let uuid = remainder.split(separator: "/", maxSplits: 1).first.map(String.init),
+              uuid.count == 36,
+              UUID(uuidString: uuid) != nil
+        else {
+            return nil
+        }
+        return URL(fileURLWithPath: prefix, isDirectory: true).appendingPathComponent(uuid, isDirectory: true)
     }
 
     // MARK: - mkdir

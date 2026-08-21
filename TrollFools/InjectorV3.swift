@@ -78,6 +78,15 @@ final class InjectorV3 {
         return nil
     }()
 
+    static let rootHideJBCTLBinaryURL: URL? = {
+        guard let candidate = rootHideMappedURL(forPath: "/basebin/jbctl"),
+              FileManager.default.isExecutableFile(atPath: candidate.path)
+        else {
+            return nil
+        }
+        return candidate
+    }()
+
     static let rootHideJailbreakLibraryURL: URL? = {
         guard let candidate = rootHideMappedURL(forPath: "/usr/lib/libjailbreak.dylib"),
               FileManager.default.isReadableFile(atPath: candidate.path)
@@ -126,6 +135,7 @@ final class InjectorV3 {
             "validated RootHide ldid mapping: \(rootHideLdidBinaryURL == nil ? "missing" : "available")",
             "RootHide fastPathSign mapping: \(rootHideFastPathSignBinaryURL == nil ? "missing" : "available")",
             "validated RootHide recursive trust API: \(rootHideTrustExecutableRecurse == nil ? "missing" : "available")",
+            "RootHide trust-cache verification: \(rootHideJBCTLBinaryURL == nil ? "missing" : "available")",
         ]
     }
 
@@ -156,6 +166,7 @@ final class InjectorV3 {
     var deferPlugInLoading: Bool = false
     var injectStrategy: Strategy = .lexicographic
     var didUseMachOEnumerationFallback: Bool = false
+    var rootHideTrustDiagnostics = [String]()
     var lastReport: InjectionReport?
     var latestReportURL: URL?
 
@@ -169,7 +180,8 @@ final class InjectorV3 {
         }
         if hasTrollStoreLite,
            Self.rootHideLdidBinaryURL != nil,
-           Self.rootHideTrustExecutableRecurse != nil
+           Self.rootHideTrustExecutableRecurse != nil,
+           Self.rootHideJBCTLBinaryURL != nil
         {
             return .rootHideTrustCache
         }

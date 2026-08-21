@@ -42,7 +42,8 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - `4.3-264`：**DEVICE FAILED（RootHide / Telegram 12.9.2 / Lead1.44）**。本版加入 RootHide 路径与存储兼容，但签名流程只有动态映射的 `ldid -S`，没有建立 Dopamine RootHide 要求的 custom-trust 信任级别。Telegram 连续在 dyld 启动阶段报告 `Library missing: @rpath/MtProtoKitFramework.framework/MtProtoKitFramework`；下载核对的最终主程序仍含 `@executable_path/Frameworks`，证明不是简单遗漏 rpath。
 - `4.3-265`：**DEVICE FAILED（Dopamine RootHide 后端选择）**。本版加入 Bootstrap RootHide 的 `ldid` + `fastPathSign` 流程，但真机 Dopamine RootHide 3.0.23 并不存在 `/basebin/fastPathSign` 或 `/usr/bin/fastPathSign`，导致报告回退到 `CoreTrust/ChOma`，并在修改 Telegram 前因非 4K 对齐 CodeDirectory 被预检阻断。只读检查确认动态映射的 `/usr/bin/ldid` 正常，TrollStore Lite 1.0.4 实际使用 `jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE`。
 - `4.3-266`：**DEVICE FAILED（Dopamine RootHide 运行时信任）**。Dry Run 与正式注入均报告成功，但 Telegram 和另一个 App Store App 在不同插件、直接加载和启动前兼容加载下都会闪退。只读检查确认 Telegram 最终目标 CDHash 不在 jailbreak trust cache 中；`jb.pmap_cs.custom_trust` 只从进程主程序读取，写进 framework/dylib 不能信任它们。
-- `4.3-267`：新增 `RootHide trust-cache` 后端。动态映射 `libjailbreak.dylib`，验证 `jbclient_trust_executable_recurse` 符号确实来自该镜像，保留 entitlements 并用 `ldid` 签名后，通过 RootHide 专用递归信任域上传每个修改后 Mach-O 的 CDHash。Dry Run 只验证能力和临时副本签名，不写入内核 trust cache。精确构建尚未安装测试，标记 **STATICALLY VERIFIED**。
+- `4.3-267`：**DEVICE FAILED（Dopamine RootHide 递归信任）**。递归 API 返回 0，但 RootHide 的递归收集器同样会跳过容器根目录没有 `_TrollStoreLite` 标记的 App Store framework；最终 CDHash 不在 trust cache，Telegram 仍在启动时闪退。
+- `4.3-268`：把 App Store 容器内的已签名 Mach-O 复制到经过校验的 RootHide 隐藏临时根，在那里调用递归信任 API，再把随机化后的已信任副本事务性复制回目标，并通过动态映射的 `/basebin/jbctl trustcache info` 验证最终 CDHash；不会创建 `_TrollStoreLite`。精确构建安装前标记 **STATICALLY VERIFIED**；真机手动对照已确认信任 Telegram 修改后的 `MtProtoKitFramework` 能恢复稳定启动。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -59,7 +60,7 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - `注入调试(Dry Run)`：只在临时副本执行修改和签名模拟，不改变已安装 App，所以下一次启动恢复关闭且插件列表保持为空
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
 - RootHide fast-path 签名：用于实际提供该工具的 Bootstrap 环境；验证 `jbroot` 来自已加载的 `libroothide.dylib`，动态映射并验证 `/usr/bin/ldid` 与 `fastPathSign`，先执行 `ldid` 再执行 fast-path 签名
-- Dopamine RootHide trust-cache 签名：验证映射后的 `/usr/bin/ldid` 与 `/usr/lib/libjailbreak.dylib`，校验 `jbclient_trust_executable_recurse` 的镜像来源；结构化保留原 entitlements，执行 `ldid` 后通过 RootHide 专用递归信任域上传 CDHash。候选路径只用于当前能力与诊断，不保存随机隐藏前缀
+- Dopamine RootHide trust-cache 签名：验证映射后的 `/usr/bin/ldid`、`/usr/lib/libjailbreak.dylib` 与 `/basebin/jbctl`，校验 `jbclient_trust_executable_recurse` 的镜像来源；结构化保留原 entitlements，执行 `ldid` 后将 App Store 容器内目标转入隐藏临时根完成随机化信任，再复制回并核对最终 CDHash。候选路径只用于当前能力与诊断，不保存随机隐藏前缀，不创建 marker
 - RootHide 存储隔离：Injector Caches、日志、报告和持久插件目录动态映射到隐藏根；更新检查不使用共享 URLSession 的磁盘缓存或 Cookie 存储
 - 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
 - 兼容加载重入保护：插件 `dlopen` 完成后，仅包装该插件在 `UIView` 子类上实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归时转发到父类 setter，避免插件内部重复 setter 导致栈溢出
@@ -100,7 +101,7 @@ iOS crash/Jetsam 日志路径：
 
 RootHide 下如果报告仍显示 `CoreTrust/ChOma`，先读取报告中的能力诊断：TrollStore Lite 注册、rootless `ldid`、RootHide `ldid` 映射、`fastPathSign` 映射和 recursive trust API 状态。Dopamine RootHide 3.0.23 缺少 `fastPathSign` 属于已知环境差异，只要递归信任 API 可用就应选择 `RootHide trust-cache`。不得把当前设备的 `.jbroot-*` 实际值复制进源码。
 
-`jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE` 不是 framework/dylib 的签名方案。RootHide 只在进程启动时从主程序 entitlement 读取它，并只修改主 CodeDirectory 的 trust。systemwide trust-file 路径还会主动跳过没有 TrollStore Lite marker 的 App Store bundle，因此“`ldid` 成功、CodeDirectory 有效”不能证明修改后的 framework 已可加载。正式注入必须对每个新签名 Mach-O 调用经过镜像来源校验的 `jbclient_trust_executable_recurse`；Dry Run 不得为了测试临时文件污染内核 trust cache。
+`jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE` 不是 framework/dylib 的签名方案。RootHide 只在进程启动时从主程序 entitlement 读取它，并只修改主 CodeDirectory 的 trust。systemwide 与 recursive 两条收集路径都会主动跳过没有容器级 TrollStore Lite marker 的 App Store bundle，而且收集到 0 个 CDHash 时仍可能返回 0。因此“`ldid` 成功、CodeDirectory 有效、API 返回 0”都不能单独证明修改后的 framework 已可加载。正式注入使用 RootHide 隐藏临时根完成信任和复制回，不能在 App 容器留下 marker，并必须核对最终 CDHash；Dry Run 不得污染内核 trust cache。
 
 RootHide 下不得在真实 `/var/mobile/Library/Caches/wiki.qaq.TrollFools.L` 保存 Injector 数据；`temporaryRoot` 和持久插件目录必须走同一套已验证 `jbroot` 映射。更新检查使用 ephemeral URLSession，以免主动创建持久 HTTP storage。`Saved Application State` 属于系统场景恢复链路，当前 RootHide 没有可验证的公开重定向能力；不要用 `UIApplicationExitsOnSuspend` 等会破坏正常挂起/恢复的设置规避它。
 
