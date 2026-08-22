@@ -120,7 +120,7 @@ extension InjectorV3 {
         }
     }
 
-    fileprivate func collectModifiedMachOs() throws -> [URL] {
+    func collectModifiedMachOs() throws -> [URL] {
         try frameworkMachOsInBundle(bundleURL)
             .filter { hasAlternate($0) }.elements
     }

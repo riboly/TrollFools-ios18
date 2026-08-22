@@ -48,6 +48,7 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - `4.3-266`：**DEVICE FAILED（Dopamine RootHide 运行时信任）**。Dry Run 与正式注入均报告成功，但 Telegram 和另一个 App Store App 在不同插件、直接加载和启动前兼容加载下都会闪退。只读检查确认 Telegram 最终目标 CDHash 不在 jailbreak trust cache 中；`jb.pmap_cs.custom_trust` 只从进程主程序读取，写进 framework/dylib 不能信任它们。
 - `4.3-267`：**DEVICE FAILED（Dopamine RootHide 递归信任）**。递归 API 返回 0，但 RootHide 的递归收集器同样会跳过容器根目录没有 `_TrollStoreLite` 标记的 App Store framework；最终 CDHash 不在 trust cache，Telegram 仍在启动时闪退。
 - `4.3-268`：**DEVICE VERIFIED（Dopamine RootHide / Telegram 12.9.2 / Lead1.44 报告场景）**。把 App Store 容器内的已签名 Mach-O 复制到经过校验的 RootHide 隐藏临时根，在那里调用递归信任 API，再把随机化后的已信任副本事务性复制回目标，并通过动态映射的 `/basebin/jbctl trustcache info` 验证最终 CDHash；不会创建 `_TrollStoreLite`。用户已在 iPhone XS Max / iOS 18.2.1 / Dopamine RootHide 3.0.23 上确认精确构建的 Dry Run、正式注入、RootHide 隐藏 staging、最终 trust-cache 校验、Telegram 注入 Lead1.44 后启动及本次测试范围内的功能均正常。此结论不代表任意 App 或任意插件均已验证。
+- `4.3-269`：RootHide 重启恢复版本。完整重启会清除动态 trust cache，但 App 容器内的注入文件和 `.troll-fools.bak` 仍保留；TrollFools 启动后只枚举自身可证明管理的已修改 Mach-O、Loader 清单插件、Loader 与 CydiaSubstrate，检查当前 CDHash，缺失时通过隐藏 staging 重新登记并复制回。每个 App 在修改前整组备份，任一文件失败则整组回滚并在列表页显示失败。该机制在 TrollFools 启动时执行，不等同于 Dopamine 启动阶段的持久恢复。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
@@ -65,6 +66,7 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - Rootless ad-hoc 签名：尝试内置 `ldid` 和 `/var/jb/usr/bin/ldid`，记录完整退出原因/stdout/stderr
 - RootHide fast-path 签名：用于实际提供该工具的 Bootstrap 环境；验证 `jbroot` 来自已加载的 `libroothide.dylib`，动态映射并验证 `/usr/bin/ldid` 与 `fastPathSign`，先执行 `ldid` 再执行 fast-path 签名
 - Dopamine RootHide trust-cache 签名：验证映射后的 `/usr/bin/ldid`、`/usr/lib/libjailbreak.dylib` 与 `/basebin/jbctl`，校验 `jbclient_trust_executable_recurse` 的镜像来源；结构化保留原 entitlements，执行 `ldid` 后将 App Store 容器内目标转入隐藏临时根完成随机化信任，再复制回并核对最终 CDHash。候选路径只用于当前能力与诊断，不保存随机隐藏前缀，不创建 marker
+- RootHide 重启恢复：打开 TrollFools 时检查已注入 App 的受管 Mach-O；只有当前架构所需 CDHash 全部缺失时才通过同一隐藏 staging 流程重新登记。恢复前按 App 整组备份，失败整组回滚，成功或失败状态显示在 App 列表顶部
 - RootHide 存储隔离：Injector Caches、日志、报告和持久插件目录动态映射到隐藏根；更新检查不使用共享 URLSession 的磁盘缓存或 Cookie 存储
 - 启动前兼容加载：目标 framework 仅加载 `TrollFoolsLoader.dylib`，由 loader 在所有 framework 初始化完成后、`UIApplicationMain` 前按 `TrollFoolsLoader.plist` 清单加载插件；用于“注入成功但插件构造阶段闪退”的场景
 - 兼容加载重入保护：插件 `dlopen` 完成后，仅包装该插件在 `UIView` 子类上实现的 `setHidden:`、`setAlpha:`、`setUserInteractionEnabled:` hook；同一 hook 对同一对象递归时转发到父类 setter，避免插件内部重复 setter 导致栈溢出
@@ -106,6 +108,8 @@ iOS crash/Jetsam 日志路径：
 RootHide 下如果报告仍显示 `CoreTrust/ChOma`，先读取报告中的能力诊断：TrollStore Lite 注册、rootless `ldid`、RootHide `ldid` 映射、`fastPathSign` 映射和 recursive trust API 状态。Dopamine RootHide 3.0.23 缺少 `fastPathSign` 属于已知环境差异，只要递归信任 API 可用就应选择 `RootHide trust-cache`。不得把当前设备的 `.jbroot-*` 实际值复制进源码。
 
 `jb.pmap_cs.custom_trust=PMAP_CS_APP_STORE` 不是 framework/dylib 的签名方案。RootHide 只在进程启动时从主程序 entitlement 读取它，并只修改主 CodeDirectory 的 trust。systemwide 与 recursive 两条收集路径都会主动跳过没有容器级 TrollStore Lite marker 的 App Store bundle，而且收集到 0 个 CDHash 时仍可能返回 0。因此“`ldid` 成功、CodeDirectory 有效、API 返回 0”都不能单独证明修改后的 framework 已可加载。正式注入使用 RootHide 隐藏临时根完成信任和复制回，不能在 App 容器留下 marker，并必须核对最终 CDHash；Dry Run 不得污染内核 trust cache。
+
+完整设备重启会清空动态 trust-cache 条目，但不会删除 TrollFools 已放入 App 容器的文件。若重启后目标 App 在 dyld 初始化阶段退出，先比较所有受管 Mach-O 的当前 CDHash 与 `jbctl trustcache info`。Build 269 会在 TrollFools 启动后自动恢复缺失条目，不要求重新推出和注入；在恢复完成前直接启动目标 App 仍可能失败。Dopamine 自身的 trust-cache 分配稳定性修复不会自动重建第三方 App 的动态条目，两者不能混为同一问题。
 
 RootHide 下不得在真实 `/var/mobile/Library/Caches/wiki.qaq.TrollFools.L` 保存 Injector 数据；`temporaryRoot` 和持久插件目录必须走同一套已验证 `jbroot` 映射。更新检查使用 ephemeral URLSession，以免主动创建持久 HTTP storage。`Saved Application State` 属于系统场景恢复链路，当前 RootHide 没有可验证的公开重定向能力；不要用 `UIApplicationExitsOnSuspend` 等会破坏正常挂起/恢复的设置规避它。
 

@@ -336,6 +336,11 @@ extension InjectorV3 {
     }
 
     private func verifiedRootHideTrustCacheCDHashes(_ cdHashes: [String]) throws -> [String] {
+        let trustCacheInfo = try rootHideTrustCacheInfo()
+        return cdHashes.filter { trustCacheInfo.range(of: $0, options: .caseInsensitive) != nil }
+    }
+
+    private func rootHideTrustCacheInfo() throws -> String {
         guard let jbctlURL = Self.rootHideJBCTLBinaryURL else {
             throw Error.generic("RootHide trust-cache verification is unavailable through the validated jbroot mapping.")
         }
@@ -348,7 +353,135 @@ extension InjectorV3 {
             let detail = ldidFailureDetail(binaryURL: jbctlURL, receipt: receipt)
             throw Error.generic("RootHide trust-cache verification failed: \(detail)")
         }
-        return cdHashes.filter { receipt.stdout.range(of: $0, options: .caseInsensitive) != nil }
+        return receipt.stdout
+    }
+
+    @discardableResult
+    func restoreRootHideTrustIfNeeded() throws -> Int {
+        guard signingBackend == .rootHideTrustCache, checkIsInjectedAppBundle(bundleURL) else {
+            return 0
+        }
+
+        let candidates = try rootHideTrustRestorationMachOs()
+        guard !candidates.isEmpty else {
+            throw Error.generic("No managed Mach-O was found while restoring RootHide injection trust for \(appID ?? bundleURL.lastPathComponent).")
+        }
+
+        let trustCacheInfo = try rootHideTrustCacheInfo()
+        let missingTrust = try candidates.filter { target in
+            let cdHashes = try inspectMachO(target).slices.compactMap(\.cdHash)
+            guard !cdHashes.isEmpty else {
+                throw Error.generic("Cannot read a CDHash while restoring RootHide injection trust: \(target.path)")
+            }
+            return !cdHashes.contains { trustCacheInfo.range(of: $0, options: .caseInsensitive) != nil }
+        }
+        guard !missingTrust.isEmpty else { return 0 }
+
+        DDLogInfo(
+            "RootHide injection trust restoration requires \(missingTrust.count) of \(candidates.count) managed Mach-O(s): \(missingTrust.map(\.lastPathComponent).joined(separator: ", ")).",
+            ddlog: logger
+        )
+
+        let backupRoot = temporaryDirectoryURL
+            .appendingPathComponent("RootHideTrustRestore-\(UUID().uuidString)", isDirectory: true)
+        try cmdMakeDirectory(at: backupRoot, withIntermediateDirectories: true)
+        defer { try? cmdRemove(backupRoot, recursively: true) }
+
+        let backups: [(target: URL, backup: URL)] = try missingTrust.enumerated().map { index, target in
+            let backup = backupRoot.appendingPathComponent("\(index)-\(UUID().uuidString)-\(target.lastPathComponent)")
+            try cmdCopy(from: target, to: backup, clone: true)
+            return (target, backup)
+        }
+
+        terminateApp()
+        do {
+            for target in missingTrust {
+                try cmdRootHideTrustExecutableRecurse(target)
+                try cmdChangeOwnerToInstalld(target)
+            }
+        } catch {
+            var rollbackFailures = [String]()
+            for entry in backups {
+                do {
+                    try cmdCopy(from: entry.backup, to: entry.target, clone: true, overwrite: true)
+                    try cmdChangeOwnerToInstalld(entry.target)
+                } catch {
+                    rollbackFailures.append("\(entry.target.path): \(error.localizedDescription)")
+                }
+            }
+            guard rollbackFailures.isEmpty else {
+                throw Error.generic(
+                    "RootHide injection trust restoration failed: \(error.localizedDescription)\nRollback also failed:\n\(rollbackFailures.joined(separator: "\n"))"
+                )
+            }
+            throw error
+        }
+
+        DDLogInfo(
+            "Restored RootHide injection trust for \(missingTrust.count) managed Mach-O(s) in \(appID ?? bundleURL.lastPathComponent).",
+            ddlog: logger
+        )
+        return missingTrust.count
+    }
+
+    private func rootHideTrustRestorationMachOs() throws -> [URL] {
+        let modifiedMachOs = try collectModifiedMachOs()
+        var referencedAssetNames = Set<String>()
+
+        for target in modifiedMachOs {
+            let original = Self.alternateURL(for: target)
+            let originalDependencies = Set(try loadedDylibsOfMachO(original))
+            for dependency in try loadedDylibsOfMachO(target) where !originalDependencies.contains(dependency) {
+                if let name = managedAssetName(in: dependency) {
+                    referencedAssetNames.insert(name)
+                }
+            }
+        }
+
+        if FileManager.default.fileExists(atPath: deferredLoaderManifestURL.path),
+           let data = try? Data(contentsOf: deferredLoaderManifestURL),
+           let manifest = try? PropertyListDecoder().decode(DeferredLoaderManifest.self, from: data)
+        {
+            for path in manifest.plugIns {
+                if let name = managedAssetName(in: path) {
+                    referencedAssetNames.insert(name)
+                }
+            }
+        }
+
+        var candidates = [URL]()
+        var candidatePaths = Set<String>()
+        func appendCandidate(_ target: URL) {
+            guard isMachO(target), candidatePaths.insert(target.standardizedFileURL.path).inserted else { return }
+            candidates.append(target)
+        }
+
+        modifiedMachOs.forEach(appendCandidate)
+        for asset in injectedAssetURLsInBundle(bundleURL) where referencedAssetNames.contains(asset.lastPathComponent) {
+            appendCandidate(checkIsBundle(asset) ? try locateExecutableInBundle(asset) : asset)
+        }
+
+        let loaderURL = frameworksDirectoryURL.appendingPathComponent(Self.deferredLoaderFileName)
+        if referencedAssetNames.contains(Self.deferredLoaderFileName) ||
+            FileManager.default.fileExists(atPath: deferredLoaderManifestURL.path)
+        {
+            appendCandidate(loaderURL)
+        }
+
+        let substrateURL = frameworksDirectoryURL
+            .appendingPathComponent(Self.substrateFwkName, isDirectory: true)
+            .appendingPathComponent(Self.substrateName)
+        appendCandidate(substrateURL)
+        return candidates
+    }
+
+    private func managedAssetName(in path: String) -> String? {
+        path.split(separator: "/")
+            .map(String.init)
+            .first { component in
+                let extensionName = URL(fileURLWithPath: component).pathExtension.lowercased()
+                return extensionName == "dylib" || extensionName == "framework"
+            }
     }
 
     private func removableAppContainerURL(containing target: URL) -> URL? {

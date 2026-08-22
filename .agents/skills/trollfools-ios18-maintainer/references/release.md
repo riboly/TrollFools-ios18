@@ -46,6 +46,7 @@ Do not equate a successful workflow with a usable TrollStore Lite package. After
 7. Confirm `Assets.car` changed when the icon was changed.
 8. Calculate SHA-256 for final TIPA and DEB.
 9. For RootHide support, confirm the source contains separate `RootHide fast-path` and `RootHide trust-cache` backends. The packaged main executable must contain RootHide capability diagnostics, `fastPathSign`, `jbclient_trust_executable_recurse`, `/usr/lib/libjailbreak.dylib`, `/usr/lib/libroothide.dylib`, `/basebin/jbctl`, the hidden staging copy-back diagnostic, and final trust-cache verification; Swift may not emit enum raw-value strings contiguously. Confirm source and documentation contain no device-specific `.jbroot-*` value, no `_TrollStoreLite` marker creation, and no `jb.pmap_cs.custom_trust` framework/dylib signing.
+10. For Build 269 or later, confirm the packaged executable contains the RootHide app-start restoration diagnostics and localized status strings. Device validation must simulate missing dynamic entries with unchanged managed files, start TrollFools once, verify the preferred-architecture final CDHashes, and launch the target without reinjection.
 
 When `TrollFoolsLoader.dylib` is packaged, also verify that it is executable, contains arm64 and arm64e slices, has install name `@rpath/TrollFoolsLoader.dylib`, contains `__DATA,__interpose`, contains the `Guarded %lu reentrant UIKit setter hook(s)` diagnostic string, and is not left as a standalone `/usr/local/lib` or `/var/jb/usr/local/lib` package entry.
 
