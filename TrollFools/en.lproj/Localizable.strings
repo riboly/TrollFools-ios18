@@ -321,7 +321,3 @@
 "Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks." = "Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks.";
 "Uses the original framework scan order and tries earlier candidates first." = "Uses the original framework scan order and tries earlier candidates first.";
 "Reverses the original framework scan order and tries later candidates first." = "Reverses the original framework scan order and tries later candidates first.";
-"Restoring RootHide injection trust for %d app(s)…" = "Restoring RootHide injection trust for %d app(s)…";
-"RootHide injection trust is active." = "RootHide injection trust is active.";
-"Restored RootHide injection trust for %d app(s) and %d file(s)." = "Restored RootHide injection trust for %d app(s) and %d file(s).";
-"Failed to restore RootHide injection trust for: %@." = "Failed to restore RootHide injection trust for: %@.";

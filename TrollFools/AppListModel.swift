@@ -11,13 +11,6 @@ import OrderedCollections
 import SwiftUI
 
 final class AppListModel: ObservableObject {
-    enum RootHideTrustRestorationState: Equatable {
-        case idle
-        case restoring(Int)
-        case restored(apps: Int, machOs: Int)
-        case failed([String])
-    }
-
     enum Scope: Int, CaseIterable {
         case all
         case user
@@ -77,13 +70,6 @@ final class AppListModel: ObservableObject {
     private let filzaURL = URL(string: "filza://view")
 
     @Published var isRebuildNeeded: Bool = false
-    @Published private(set) var rootHideTrustRestorationState: RootHideTrustRestorationState = .idle
-
-    private static let rootHideTrustRestorationQueue = DispatchQueue(
-        label: "wiki.qaq.TrollFools.L.RootHideTrustRestoration",
-        qos: .userInitiated
-    )
-    private static var didScheduleRootHideTrustRestoration = false
 
     private let applicationChanged = PassthroughSubject<Void, Never>()
     private var cancellables = Set<AnyCancellable>()
@@ -117,8 +103,6 @@ final class AppListModel: ObservableObject {
         notify_register_dispatch("com.apple.LaunchServices.ApplicationsChanged", &darwinNotifyToken, .main) { [weak self] _ in
             self?.applicationChanged.send()
         }
-
-        scheduleRootHideTrustRestorationIfNeeded()
     }
 
     deinit {
@@ -132,51 +116,6 @@ final class AppListModel: ObservableObject {
         allApplications.forEach { $0.appList = self }
         _allApplications = allApplications
         performFilter()
-    }
-
-    private func scheduleRootHideTrustRestorationIfNeeded() {
-        guard selectorURL == nil,
-              InjectorV3.main.signingBackend == .rootHideTrustCache,
-              !Self.didScheduleRootHideTrustRestoration
-        else {
-            return
-        }
-        Self.didScheduleRootHideTrustRestoration = true
-
-        let injectedApps = _allApplications.filter(\.isInjected)
-        guard !injectedApps.isEmpty else { return }
-        rootHideTrustRestorationState = .restoring(injectedApps.count)
-
-        Self.rootHideTrustRestorationQueue.async { [weak self] in
-            var restoredAppCount = 0
-            var restoredMachOCount = 0
-            var failedApps = [String]()
-
-            for app in injectedApps {
-                do {
-                    let restored = try InjectorV3(app.url).restoreRootHideTrustIfNeeded()
-                    if restored > 0 {
-                        restoredAppCount += 1
-                        restoredMachOCount += restored
-                    }
-                } catch {
-                    failedApps.append(app.name)
-                    NSLog("RootHide injection trust restoration failed for %@: %@", app.bid, error.localizedDescription)
-                }
-            }
-
-            DispatchQueue.main.async {
-                guard let self else { return }
-                if failedApps.isEmpty {
-                    self.rootHideTrustRestorationState = .restored(
-                        apps: restoredAppCount,
-                        machOs: restoredMachOCount
-                    )
-                } else {
-                    self.rootHideTrustRestorationState = .failed(failedApps)
-                }
-            }
-        }
     }
 
     func performFilter() {

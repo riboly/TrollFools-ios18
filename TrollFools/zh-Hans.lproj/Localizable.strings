@@ -326,7 +326,3 @@
 "Tries smaller Mach-Os first to reduce patching and signing time in apps with many frameworks." = "优先尝试体积较小的 Mach-O，减少包含大量框架时的修改和签名耗时。";
 "Uses the original framework scan order and tries earlier candidates first." = "保持框架原始扫描顺序，优先尝试较早发现的候选目标。";
 "Reverses the original framework scan order and tries later candidates first." = "反转框架原始扫描顺序，优先尝试较晚发现的候选目标。";
-"Restoring RootHide injection trust for %d app(s)…" = "正在恢复 %d 个 App 的 RootHide 注入信任…";
-"RootHide injection trust is active." = "RootHide 注入信任有效。";
-"Restored RootHide injection trust for %d app(s) and %d file(s)." = "已恢复 %d 个 App、%d 个文件的 RootHide 注入信任。";
-"Failed to restore RootHide injection trust for: %@." = "以下 App 的 RootHide 注入信任恢复失败：%@。";

@@ -268,8 +268,6 @@ struct AppListView: View {
 
     var topSection: some View {
         Section {
-            rootHideTrustRestorationRow
-
             if AppListModel.hasTrollStore && appList.isRebuildNeeded {
                 rebuildButton
                     .transition(.opacity)
@@ -298,50 +296,6 @@ struct AppListView: View {
             }
         }
         .id("TopSection")
-    }
-
-    @ViewBuilder
-    var rootHideTrustRestorationRow: some View {
-        switch appList.rootHideTrustRestorationState {
-        case .idle:
-            EmptyView()
-        case let .restoring(appCount):
-            HStack(spacing: 12) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle())
-                Text(String(
-                    format: NSLocalizedString("Restoring RootHide injection trust for %d app(s)…", comment: ""),
-                    appCount
-                ))
-                .font(.subheadline)
-            }
-            .accessibilityElement(children: .combine)
-        case let .restored(appCount, machOCount):
-            Label {
-                Text(appCount == 0
-                    ? NSLocalizedString("RootHide injection trust is active.", comment: "")
-                    : String(
-                        format: NSLocalizedString("Restored RootHide injection trust for %d app(s) and %d file(s).", comment: ""),
-                        appCount,
-                        machOCount
-                    ))
-                    .font(.subheadline)
-            } icon: {
-                Image(systemName: "checkmark.shield.fill")
-                    .foregroundColor(.green)
-            }
-        case let .failed(appNames):
-            Label {
-                Text(String(
-                    format: NSLocalizedString("Failed to restore RootHide injection trust for: %@.", comment: ""),
-                    appNames.joined(separator: ", ")
-                ))
-                .font(.subheadline)
-            } icon: {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .foregroundColor(.orange)
-            }
-        }
     }
 
     var rebuildButton: some View {
