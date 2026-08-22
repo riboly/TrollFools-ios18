@@ -48,7 +48,7 @@ RootHide 进程会加载 `libroothide.dylib` 并提供 `jbroot` 路径映射；�
 - `4.3-266`：**DEVICE FAILED（Dopamine RootHide 运行时信任）**。Dry Run 与正式注入均报告成功，但 Telegram 和另一个 App Store App 在不同插件、直接加载和启动前兼容加载下都会闪退。只读检查确认 Telegram 最终目标 CDHash 不在 jailbreak trust cache 中；`jb.pmap_cs.custom_trust` 只从进程主程序读取，写进 framework/dylib 不能信任它们。
 - `4.3-267`：**DEVICE FAILED（Dopamine RootHide 递归信任）**。递归 API 返回 0，但 RootHide 的递归收集器同样会跳过容器根目录没有 `_TrollStoreLite` 标记的 App Store framework；最终 CDHash 不在 trust cache，Telegram 仍在启动时闪退。
 - `4.3-268`：**DEVICE VERIFIED（Dopamine RootHide / Telegram 12.9.2 / Lead1.44 报告场景）**。把 App Store 容器内的已签名 Mach-O 复制到经过校验的 RootHide 隐藏临时根，在那里调用递归信任 API，再把随机化后的已信任副本事务性复制回目标，并通过动态映射的 `/basebin/jbctl trustcache info` 验证最终 CDHash；不会创建 `_TrollStoreLite`。用户已在 iPhone XS Max / iOS 18.2.1 / Dopamine RootHide 3.0.23 上确认精确构建的 Dry Run、正式注入、RootHide 隐藏 staging、最终 trust-cache 校验、Telegram 注入 Lead1.44 后启动及本次测试范围内的功能均正常。此结论不代表任意 App 或任意插件均已验证。
-- `4.3-269`：RootHide 重启恢复版本。完整重启会清除动态 trust cache，但 App 容器内的注入文件和 `.troll-fools.bak` 仍保留；TrollFools 启动后只枚举自身可证明管理的已修改 Mach-O、Loader 清单插件、Loader 与 CydiaSubstrate，检查当前 CDHash，缺失时通过隐藏 staging 重新登记并复制回。每个 App 在修改前整组备份，任一文件失败则整组回滚并在列表页显示失败。该机制在 TrollFools 启动时执行，不等同于 Dopamine 启动阶段的持久恢复。
+- `4.3-269`：**DEVICE VERIFIED（RootHide 重启后 App 启动恢复 / Telegram / Lead1.44 报告场景）**。完整重启会清除动态 trust cache，但 App 容器内的注入文件和 `.troll-fools.bak` 仍保留；TrollFools 启动后只枚举自身可证明管理的已修改 Mach-O、Loader 清单插件、Loader 与 CydiaSubstrate，检查当前 CDHash，缺失时通过隐藏 staging 重新登记并复制回。真机将 Telegram 四个受管文件恢复为登记前哈希后，Telegram 可重复在 dyld 初始化阶段失败；只打开 TrollFools 269 后，四个当前架构 CDHash 均进入 trust cache，Telegram 未重新注入即稳定运行，Frida 确认 Loader 与 Lead 均已加载。每个 App 在修改前整组备份，任一文件失败则整组回滚并在列表页显示失败。该机制在 TrollFools 启动时执行，不等同于 Dopamine 启动阶段的持久恢复。
 
 后续修改不得破坏 `4.3-258` 已验证的注入链路。不要恢复 GitHub Actions 中现场编译并替换 ChOma `ct_bypass` 的步骤。
 
